@@ -48,7 +48,6 @@ class ReflexAgent(Agent):
         chosenIndex = random.choice(bestIndices) # Pick randomly among the best
 
         "Add more of your code here if you want to"
-
         return legalMoves[chosenIndex]
 
     def evaluationFunction(self, currentGameState, action):
@@ -70,11 +69,31 @@ class ReflexAgent(Agent):
         successorGameState = currentGameState.generatePacmanSuccessor(action)
         newPos = successorGameState.getPacmanPosition()
         newFood = successorGameState.getFood()
+        oldFood = currentGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
+        ghostPositions = currentGameState.getGhostPositions()
 
-        "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        gridDist = newFood.width + newFood.height
+        gridSize = newFood.width * newFood.height
+
+        nearestFoodDistance = min([util.manhattanDistance(newPos, foodLoc) for foodLoc in oldFood.asList()])
+        distancesToGhosts = [util.manhattanDistance(newPos, gPos) for gPos in ghostPositions]
+        minDistToGhost = min(distancesToGhosts)
+        numFood = len(newFood.asList())
+
+        foodDistFactor = (gridDist * 1.0 / (nearestFoodDistance + 1))
+
+        foodNumFactor = (gridSize * 1.0 / (numFood + 1))
+
+        ghostFactor = ((minDistToGhost * 1.0) + 1) / gridSize
+
+        evalFunc = foodDistFactor * foodNumFactor * ghostFactor
+
+        if (minDistToGhost < 3):
+            return ghostFactor
+
+        return evalFunc
 
 def scoreEvaluationFunction(currentGameState):
     """
