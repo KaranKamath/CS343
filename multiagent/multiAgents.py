@@ -150,25 +150,21 @@ class MinimaxAgent(MultiAgentSearchAgent):
         import sys
 
         def isMin(agent):
-            return agent == 0
+            return agent > 0
 
         def isMax(agent):
-            return agent > 0
+            return agent == 0
 
         def isTerminal(state):
             return state.isWin() or state.isLose()
 
-        def minval(state, agent, depth):
+        def minval(state, actionUtils):
             v = sys.maxint
-            actions = state.getLegalActions(agent)
-            actionUtils = map(lambda x: value(state.generateSuccessor(agent, x), agent + 1, depth), actions)
             v = min([v] + actionUtils)
             return v
 
-        def maxval(state, agent, depth):
+        def maxval(state, actionUtils):
             v = -sys.maxint-1
-            actions = state.getLegalActions(agent)
-            actionUtils = map(lambda x: value(state.generateSuccessor(agent, x), agent + 1, depth), actions)
             v = max([v] + actionUtils)
             return v
 
@@ -180,11 +176,14 @@ class MinimaxAgent(MultiAgentSearchAgent):
             if depth > self.depth or isTerminal(state):
                 return self.evaluationFunction(state)
 
-            if isMin(agent):
-                return maxval(state, agent, depth)
+            actions = state.getLegalActions(agent)
+            actionUtils = map(lambda x: value(state.generateSuccessor(agent, x), agent + 1, depth), actions)
 
             if isMax(agent):
-                return minval(state, agent, depth)
+                return maxval(state, actionUtils)
+
+            if isMin(agent):
+                return minval(state, actionUtils)
 
         validActions = gameState.getLegalActions(0)
         actionTuples = [(action, value(gameState.generateSuccessor(0, action), 1, 1)) for action in validActions]
