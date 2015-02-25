@@ -199,8 +199,54 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         """
           Returns the minimax action using self.depth and self.evaluationFunction
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        import sys
+
+        def isMin(agent):
+            return agent > 0
+
+        def isMax(agent):
+            return agent == 0
+
+        def isTerminal(state):
+            return state.isWin() or state.isLose()
+
+        def minval(state, agent, depth, alpha, beta):
+            v = (sys.maxint, None)
+            actions = state.getLegalActions(agent)
+            for a in actions:
+                actionUtil = value(state.generateSuccessor(agent, a), agent + 1, depth, alpha, beta)
+                v = min([v, (actionUtil[0], a)], key=lambda x: x[0])
+                if v[0] < alpha:
+                    return v
+                beta = min([beta, v[0]])
+            return v
+
+        def maxval(state, agent, depth, alpha, beta):
+            v = (-sys.maxint-1, None)
+            actions = state.getLegalActions(agent)
+            for a in actions:
+                actionUtil = value(state.generateSuccessor(agent, a), agent + 1, depth, alpha, beta)
+                v = max([v, (actionUtil[0], a)], key=lambda x: x[0])
+                if v[0] > beta:
+                    return v
+                alpha = max([alpha, v[0]])
+            return v
+
+        def value(state, agent, depth, alpha, beta):
+            if agent == state.getNumAgents():
+                depth += 1
+                agent = 0
+
+            if depth > self.depth or isTerminal(state):
+                return self.evaluationFunction(state), None
+
+            if isMax(agent):
+                return maxval(state, agent, depth, alpha, beta)
+
+            if isMin(agent):
+                return minval(state, agent, depth, alpha, beta)
+
+        return value(gameState, 0, 1, -sys.maxint-1, sys.maxint)[1]
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
