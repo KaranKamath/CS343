@@ -147,42 +147,49 @@ class MinimaxAgent(MultiAgentSearchAgent):
           gameState.getNumAgents():
             Returns the total number of agents in the game
         """
-
         import sys
 
+        def isMin(agent):
+            return agent == 0
+
+        def isMax(agent):
+            return agent > 0
+
+        def isTerminal(state):
+            return state.isWin() or state.isLose()
+
         def minval(state, agent, depth):
-            if depth > self.depth:
-                return self.evaluationFunction(state)
-
-            vals = [sys.maxint]
-            if agent == state.getNumAgents() - 1:
-                for a in state.getLegalActions(agent):
-                    vals.append(maxval(state.generateSuccessor(agent, a), 0, depth + 1))
-            else:
-                for a in state.getLegalActions(agent):
-                    vals.append(minval(state.generateSuccessor(agent, a), agent + 1, depth))
-
-            return min(vals)
+            v = sys.maxint
+            actions = state.getLegalActions(agent)
+            actionUtils = map(lambda x: value(state.generateSuccessor(agent, x), agent + 1, depth), actions)
+            v = min([v] + actionUtils)
+            return v
 
         def maxval(state, agent, depth):
+            v = -sys.maxint-1
+            actions = state.getLegalActions(agent)
+            actionUtils = map(lambda x: value(state.generateSuccessor(agent, x), agent + 1, depth), actions)
+            v = max([v] + actionUtils)
+            return v
 
-            if depth > self.depth:
+        def value(state, agent, depth):
+            if agent == state.getNumAgents():
+                depth += 1
+                agent = 0
+
+            if depth > self.depth or isTerminal(state):
                 return self.evaluationFunction(state)
 
-            vals = [-sys.maxint-1]
-            for a in state.getLegalActions(agent):
-                vals.append(minval(state.generateSuccessor(agent, a), agent + 1, depth))
+            if isMin(agent):
+                return maxval(state, agent, depth)
 
-            return max(vals)
+            if isMax(agent):
+                return minval(state, agent, depth)
 
         validActions = gameState.getLegalActions(0)
-        actionTuples = [(action, minval(gameState.generateSuccessor(0, action), 1, 1)) for action in validActions]
+        actionTuples = [(action, value(gameState.generateSuccessor(0, action), 1, 1)) for action in validActions]
 
-        print actionTuples
-        actionToTake = max(actionTuples, key=lambda x: x[1])[0]
-
-        print actionToTake
-        return actionToTake
+        return max(actionTuples, key=lambda x: x[1])[0]
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
