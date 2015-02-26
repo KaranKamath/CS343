@@ -300,7 +300,21 @@ def betterEvaluationFunction(currentGameState):
       Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
       evaluation function (question 5).
 
-      DESCRIPTION: <write something here so we know what you did>
+      DESCRIPTION: Eval function crafted using factors that affect state value,
+                    determining whether they are directly or inversely proportional,
+                    and then optimizing powers to which they must be raised via trials
+
+        Factors Added In The Denominator (Inverse Relationship):
+            1. Amount of food left (Inversely proportional to 10th power)
+            2. Distance to nearest food
+            3. Number of capsules left
+            4. Distance to nearest capsule
+        Factors in Numerator (Direct Relationship):
+            1. Distance to nearest ghost
+
+        Special Cases:
+            1. Distance to ghost drops below 2: Flee (Negative Utility)
+            2. Ghosts are scared: Chase (Eval function only depends on distance to ghost)
     """
     pos = currentGameState.getPacmanPosition()
     food = currentGameState.getFood()
@@ -319,13 +333,12 @@ def betterEvaluationFunction(currentGameState):
     minCapsuleDist = min([util.manhattanDistance(pos, capPos) for capPos in capsules]) if capsules else 0
     numCapsules = len(capsules)
 
-    evalFunc = ((minDistToGhost ** 0.5) * 1.0 / gridDist) / (0.1 + minCapsuleDist + nearestFoodDistance + numCapsules + (numFood ** 10.0))
     if scaredTimes != [0]:
-        return 1.0 / (minDistToGhost + 1)
+        return gridDist / (minDistToGhost + 1)
     if minDistToGhost < 2:
         return -1
 
-    return evalFunc
+    return ((minDistToGhost ** 0.5) * 1.0 / gridDist) / (0.1 + minCapsuleDist + nearestFoodDistance + numCapsules + (numFood ** 10.0))
 
 # Abbreviation
 better = betterEvaluationFunction
