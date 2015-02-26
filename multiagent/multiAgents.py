@@ -319,7 +319,7 @@ def betterEvaluationFunction(currentGameState):
     minCapsuleDist = min([util.manhattanDistance(pos, capPos) for capPos in capsules]) if capsules else 0
     numCapsules = len(capsules)
 
-    evalFunc = ((minDistToGhost ** 0.5) * 1.0 / gridDist) / (0.1 + minCapsuleDist + nearestFoodDistance + numCapsules + (numFood ** 4.0))
+    evalFunc = ((minDistToGhost ** 0.5) * 1.0 / gridDist) / (0.1 + minCapsuleDist + nearestFoodDistance + numCapsules + (numFood ** 10.0))
     if scaredTimes != [0]:
         return 1.0 / (minDistToGhost + 1)
     if minDistToGhost < 2:
