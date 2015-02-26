@@ -309,18 +309,21 @@ def betterEvaluationFunction(currentGameState):
     ghostPositions = currentGameState.getGhostPositions()
 
     gridDist = food.width + food.height
-    gridSize = food.width * food.height
 
     nearestFoodDistance = min([util.manhattanDistance(pos, foodLoc) for foodLoc in food.asList()]) if food.asList() else 0
     distancesToGhosts = [util.manhattanDistance(pos, gPos) for gPos in ghostPositions]
     minDistToGhost = min(distancesToGhosts)
     numFood = len(food.asList())
+    capsules = currentGameState.getCapsules()
 
-    evalFunc = ((minDistToGhost ** 0.5) * 1.0 / gridDist) / (0.00001 + nearestFoodDistance + (numFood ** 4.0))
+    minCapsuleDist = min([util.manhattanDistance(pos, capPos) for capPos in capsules]) if capsules else 0
+    numCapsules = len(capsules)
+
+    evalFunc = ((minDistToGhost ** 0.5) * 1.0 / gridDist) / (0.1 + minCapsuleDist + nearestFoodDistance + numCapsules + (numFood ** 4.0))
     if scaredTimes != [0]:
         return 1.0 / (minDistToGhost + 1)
     if minDistToGhost < 2:
-        return -10
+        return -1
 
     return evalFunc
 
