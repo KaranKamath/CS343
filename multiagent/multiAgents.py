@@ -316,19 +316,11 @@ def betterEvaluationFunction(currentGameState):
     minDistToGhost = min(distancesToGhosts)
     numFood = len(food.asList())
 
-    foodDistFactor = (gridDist * 1.0 / (nearestFoodDistance + 1))
-
-    foodNumFactor = (gridSize * 1.0 / (numFood + 1))
-
-    ghostFactor = ((minDistToGhost * 1.0) + 1) / gridSize
-
-    evalFunc = minDistToGhost * 1.0 / (0.1 + (numFood * numFood))
-
-    if minDistToGhost < 3:
+    evalFunc = ((minDistToGhost ** 0.5) * 1.0 / gridDist) / (0.00001 + nearestFoodDistance + (numFood ** 4.0))
+    if scaredTimes != [0]:
+        return 1.0 / (minDistToGhost + 1)
+    if minDistToGhost < 2:
         return -10
-
-    if numFood == 0:
-        return 10
 
     return evalFunc
 
