@@ -48,7 +48,7 @@ class ValueIterationAgent(ValueEstimationAgent):
             for state in mdp.getStates():
                 if mdp.isTerminal(state):
                     continue
-                maxActionValue = self.getActionValue(state, self.computeActionFromValues(state))
+                maxActionValue = self.getStateActionValue(state, self.computeActionFromValues(state))
                 newValues[state] = mdp.getReward(state, None, None) + self.discount * maxActionValue
 
             self.values = newValues
@@ -65,11 +65,21 @@ class ValueIterationAgent(ValueEstimationAgent):
           Compute the Q-value of action in state from the
           value function stored in self.values.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        if self.mdp.isTerminal(state):
+            return 0
 
-    def getActionValue(self, state, action):
-        print state, action
+        nextStateAndProbs = self.mdp.getTransitionStatesAndProbs(state, action)
+        futureRewards = 0
+        for nextState, prob in nextStateAndProbs:
+            maxActionValue = self.values[nextState]
+            futureRewards = futureRewards + prob * maxActionValue
+
+        return self.mdp.getReward(state, None, None) + self.discount * futureRewards
+
+    def getStateActionValue(self, state, action):
+        if action is None:
+            return 0
+
         nextStateAndProbs = self.mdp.getTransitionStatesAndProbs(state, action)
         return sum(map(lambda x: self.values[x[0]] * x[1], nextStateAndProbs))
 
@@ -85,7 +95,7 @@ class ValueIterationAgent(ValueEstimationAgent):
         if self.mdp.isTerminal(state):
             return None
 
-        availableActions = [(action, self.getActionValue(state, action)) for action in self.mdp.getPossibleActions(state)]
+        availableActions = [(action, self.getStateActionValue(state, action)) for action in self.mdp.getPossibleActions(state)]
 
         return max(availableActions, key=lambda x: x[1])[0]
 
