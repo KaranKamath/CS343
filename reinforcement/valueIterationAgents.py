@@ -69,6 +69,7 @@ class ValueIterationAgent(ValueEstimationAgent):
         util.raiseNotDefined()
 
     def getActionValue(self, state, action):
+        print state, action
         nextStateAndProbs = self.mdp.getTransitionStatesAndProbs(state, action)
         return sum(map(lambda x: self.values[x[0]] * x[1], nextStateAndProbs))
 
@@ -86,7 +87,7 @@ class ValueIterationAgent(ValueEstimationAgent):
 
         availableActions = [(action, self.getActionValue(state, action)) for action in self.mdp.getPossibleActions(state)]
 
-        return max(availableActions, key=lambda x: x[1])
+        return max(availableActions, key=lambda x: x[1])[0]
 
     def getPolicy(self, state):
         return self.computeActionFromValues(state)
