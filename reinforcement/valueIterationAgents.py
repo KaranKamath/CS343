@@ -43,9 +43,15 @@ class ValueIterationAgent(ValueEstimationAgent):
         self.iterations = iterations
         self.values = util.Counter() # A Counter is a dict with default 0
 
-        # Write value iteration code here
-        "*** YOUR CODE HERE ***"
+        for i in range(0, self.iterations):
+            newValues = util.Counter()
+            for state in mdp.getStates():
+                if mdp.isTerminal(state):
+                    continue
+                maxActionValue = self.getActionValue(state, self.computeActionFromValues(state))
+                newValues[state] = mdp.getReward(state, None, None) + self.discount * maxActionValue
 
+            self.values = newValues
 
     def getValue(self, state):
         """
@@ -62,6 +68,10 @@ class ValueIterationAgent(ValueEstimationAgent):
         "*** YOUR CODE HERE ***"
         util.raiseNotDefined()
 
+    def getActionValue(self, state, action):
+        nextStateAndProbs = self.mdp.getTransitionStatesAndProbs(state, action)
+        return sum(map(lambda x: self.values[x[0]] * x[1], nextStateAndProbs))
+
     def computeActionFromValues(self, state):
         """
           The policy is the best action in the given state
@@ -71,8 +81,12 @@ class ValueIterationAgent(ValueEstimationAgent):
           there are no legal actions, which is the case at the
           terminal state, you should return None.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        if self.mdp.isTerminal(state):
+            return None
+
+        availableActions = [(action, self.getActionValue(state, action)) for action in self.mdp.getPossibleActions(state)]
+
+        return max(availableActions, key=lambda x: x[1])
 
     def getPolicy(self, state):
         return self.computeActionFromValues(state)
