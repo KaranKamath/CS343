@@ -597,6 +597,7 @@ class JointParticleFilter:
                 newPos = util.sample(nextDist, nextDist.values())
                 newParticle[i] = newPos
 
+
             newParticles.append(tuple(newParticle))
         self.particles = newParticles
 
