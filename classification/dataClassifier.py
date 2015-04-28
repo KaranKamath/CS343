@@ -65,13 +65,15 @@ def basicFeatureExtractorFace(datum):
     return features
 
 class DisjointSet():
-    def _init_(self):
-        self.parents = dict()
-        self.ranks = dict()
+    def __init__(self):
+        self.parents = {}
+        self.ranks = {}
+        self.leaders = 0
 
     def makeSet(self, x):
         self.parents[x] = x
         self.ranks[x] = 0
+        self.leaders += 1
 
     def findSet(self, x):
         if x != self.parents[x]:
@@ -88,6 +90,13 @@ class DisjointSet():
 
     def union(self, x, y):
         self.link(self.findSet(x), self.findSet(y))
+
+    def getNumSets(self):
+        objects = self.parents.keys()
+        setIds = set()
+        for o in objects:
+            setIds.add(self.findSet(o))
+        return len(setIds)
 
 def enhancedFeatureExtractorDigit(datum):
     """
@@ -106,6 +115,8 @@ def enhancedFeatureExtractorDigit(datum):
 
     offPixels = {}
 
+    dset = DisjointSet()
+
     for x in range(DIGIT_DATUM_WIDTH):
         for y in range(DIGIT_DATUM_HEIGHT):
             if datum.getPixel(x, y) > 0:
@@ -114,49 +125,39 @@ def enhancedFeatureExtractorDigit(datum):
                 features[(x, y)] = 0
                 offPixels[(x, y)] = -1
 
-
-    def isValid(pixel):
-        x = pixel[0]
-        y = pixel[1]
-
-        if x in range(DIGIT_DATUM_HEIGHT) and y in range(DIGIT_DATUM_WIDTH):
-            return True
-
-        return False
+    unvisitedPoints = offPixels.keys()
+    for p in unvisitedPoints:
+        dset.makeSet(p)
 
     def isNotVisited(p):
-        return p in offPixels.keys() and offPixels[p] == -1
+        return p in unvisitedPoints
 
     def getUnvisitedNeighbors(pixel):
         x, y = pixel
         neighbors = [(x-1, y), (x+1, y), (x, y-1), (x, y+1),
                       (x-1, y-1), (x-1, y+1), (x+1, y-1), (x+1, y+1)]
 
-        validNeighbors = filter(isValid, neighbors)
-        return filter(isNotVisited, validNeighbors)
+        return filter(isNotVisited, neighbors)
 
-    def DFS(pixel, markNumber):
-        if not isValid(pixel):
-            return
-
-        offPixels[pixel] = markNumber
+    def DFS(pixel):
+        unvisitedPoints.remove(pixel)
 
         neighbors = getUnvisitedNeighbors(pixel)
 
         for neighbor in neighbors:
-            DFS(neighbor, markNumber)
+            dset.union(pixel, neighbor)
+            if neighbor in unvisitedPoints:
+                DFS(neighbor)
 
-    currentMark = 0
+    while unvisitedPoints:
+        DFS(unvisitedPoints[0])
 
-    while filter(isNotVisited, offPixels.keys()):
-        currentMark += 1
-        unvisited = filter(isNotVisited, offPixels.keys())
-        DFS(unvisited[0], currentMark)
+    numLeaders = dset.getNumSets()
 
-    for i in range(5):
+    for i in range(numLeaders):
         features[(-1, i)] = 0
 
-    features[(-1, currentMark)] = 1
+    features[(-1, numLeaders)] = 1
     return features
 
 def basicFeatureExtractorPacman(state):
@@ -241,16 +242,16 @@ def analysis(classifier, guesses, testLabels, testData, rawTestData, printImage)
 
     # Put any code here...
     # Example of use:
-    for i in range(len(guesses)):
-        prediction = guesses[i]
-        truth = testLabels[i]
-        if (prediction != truth):
-            print "==================================="
-            print "Mistake on example %d" % i
-            print "Predicted %d; truth is %d" % (prediction, truth)
-            print "Image: "
-            print rawTestData[i]
-            break
+    # for i in range(len(guesses)):
+    #     prediction = guesses[i]
+    #     truth = testLabels[i]
+    #     if (prediction != truth):
+    #         print "==================================="
+    #         print "Mistake on example %d" % i
+    #         print "Predicted %d; truth is %d" % (prediction, truth)
+    #         print "Image: "
+    #         print rawTestData[i]
+    #         break
 
 
 ## =====================
