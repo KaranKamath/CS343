@@ -198,9 +198,20 @@ def enhancedPacmanFeatures(state, action):
     For each state, this function is called with each legal action.
     It should return a counter with { <feature name> : <feature value>, ... }
     """
+
+    successor = state.generateSuccessor(0, action)
+
+    def manhattanDistance(p1, p2):
+        return abs(p1[0]-p2[0]) + abs(p1[1]-p2[1])
+
+    pacmanPos = successor.getPacmanPosition()
+    ghostStates = successor.getGhostStates()
+
+    minGhostDistance = min([manhattanDistance(pacmanPos, x.getPosition())
+                            for x in ghostStates])
     features = util.Counter()
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    features['minGhostDistance'] = minGhostDistance
+    features['numFood'] = successor.getNumFood()
     return features
 
 
