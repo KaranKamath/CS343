@@ -77,38 +77,92 @@ def enhancedFeatureExtractorDigit(datum):
     """
     a = datum.getPixels()
 
-    onCount = 0
-
     features = util.Counter()
+
+    offPixels = {}
+
+    rowCounts = [0] * DIGIT_DATUM_WIDTH
+    columnCounts = [0] * DIGIT_DATUM_HEIGHT
+
     for x in range(DIGIT_DATUM_WIDTH):
         for y in range(DIGIT_DATUM_HEIGHT):
             if datum.getPixel(x, y) > 0:
-                features[(x,y)] = 1
-                onCount = onCount + 1
+                features[(x, y)] = 1
+                rowCounts[y] += 1
+                columnCounts[x] += 1
             else:
-                features[(x,y)] = 0
+                features[(x, y)] = 0
+                offPixels[(x, y)] = -1
 
-    totalArea = DIGIT_DATUM_WIDTH * DIGIT_DATUM_HEIGHT
 
-    features[0] = 0
-    features[10] = 0
-    features[20] = 0
-    features[30] = 0
-    features[40] = 0
-    features[50] = 0
-    features[60] = 0
-    features[70] = 0
-    features[80] = 0
-    features[90] = 0
-    features[100] = 0
+    def isValid(pixel):
+        x = pixel[0]
+        y = pixel[1]
 
-    fractionCoverage = onCount * 1.0 / totalArea
+        if x in range(DIGIT_DATUM_HEIGHT) and y in range(DIGIT_DATUM_WIDTH):
+            return True
 
-    features[((int)(fractionCoverage * 10)) * 10] = 1
+        return False
 
+    def getUnvisitedNeighbors(pixel, markDict):
+        allOffPixels = markDict.keys()
+
+        def isNeighbor(p):
+            x, y = pixel
+            px, py = p
+
+            if (x-1) <= px <= (x+1) and \
+                (y-1) <= py <= (y+1) and \
+                markDict[p] == -1:
+                return True
+
+            return False
+
+        return filter(isNeighbor, allOffPixels)
+
+    def DFS(pixel, markDict, markNumber):
+        if not isValid(pixel):
+            return
+
+        markDict[pixel] = markNumber
+
+        neighbors = getUnvisitedNeighbors(pixel, markDict)
+
+        for neighbor in neighbors:
+            DFS(neighbor, markDict, markNumber)
+
+    def isNotVisited(p):
+        return offPixels[p] == -1
+
+    currentMark = 0
+    while filter(isNotVisited, offPixels.keys()):
+        currentMark += 1
+        unvisited = filter(isNotVisited, offPixels.keys())
+        DFS(unvisited[0], offPixels, currentMark)
+
+    for i in range(5):
+        features[(-1, i)] = 0
+
+    for i in range(2):
+        features[(-2, i)] = 0
+        features[(-3, i)] = 0
+
+    leftBias = sum(columnCounts[:(len(columnCounts) / 2)]) * 1.0 / sum(columnCounts)
+    topBias = sum(rowCounts[:(len(rowCounts) / 2)]) * 1.0 / sum(rowCounts)
+    print leftBias
+    print topBias
+    if leftBias >= 0.5:
+        features[(-2, 0)] = 1
+    else:
+        features[(-2, 1)] = 1
+
+    if topBias >= 0.5:
+        features[(-3, 0)] = 1
+    else:
+        features[(-3, 1)] = 1
+
+    features[(-1, currentMark)] = 1
     return features
-
-
 
 def basicFeatureExtractorPacman(state):
     """
@@ -192,16 +246,16 @@ def analysis(classifier, guesses, testLabels, testData, rawTestData, printImage)
 
     # Put any code here...
     # Example of use:
-    # for i in range(len(guesses)):
-    #     prediction = guesses[i]
-    #     truth = testLabels[i]
-    #     if (prediction != truth):
-    #         print "==================================="
-    #         print "Mistake on example %d" % i
-    #         print "Predicted %d; truth is %d" % (prediction, truth)
-    #         print "Image: "
-    #         print rawTestData[i]
-    #         break
+    for i in range(len(guesses)):
+        prediction = guesses[i]
+        truth = testLabels[i]
+        if (prediction != truth):
+            print "==================================="
+            print "Mistake on example %d" % i
+            print "Predicted %d; truth is %d" % (prediction, truth)
+            print "Image: "
+            print rawTestData[i]
+            break
 
 
 ## =====================
