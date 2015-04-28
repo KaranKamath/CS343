@@ -64,6 +64,31 @@ def basicFeatureExtractorFace(datum):
                 features[(x,y)] = 0
     return features
 
+class DisjointSet():
+    def _init_(self):
+        self.parents = dict()
+        self.ranks = dict()
+
+    def makeSet(self, x):
+        self.parents[x] = x
+        self.ranks[x] = 0
+
+    def findSet(self, x):
+        if x != self.parents[x]:
+            self.parents[x] = self.findSet(self.parents[x])
+        return self.parents[x]
+
+    def link(self, x, y):
+        if self.ranks[x] > self.ranks[y]:
+            self.parents[y] = x
+        else:
+            self.parents[x] = y
+            if self.ranks[x] == self.ranks[y]:
+                self.ranks[y] += 1
+
+    def union(self, x, y):
+        self.link(self.findSet(x), self.findSet(y))
+
 def enhancedFeatureExtractorDigit(datum):
     """
     Your feature extraction playground.
@@ -81,15 +106,10 @@ def enhancedFeatureExtractorDigit(datum):
 
     offPixels = {}
 
-    rowCounts = [0] * DIGIT_DATUM_WIDTH
-    columnCounts = [0] * DIGIT_DATUM_HEIGHT
-
     for x in range(DIGIT_DATUM_WIDTH):
         for y in range(DIGIT_DATUM_HEIGHT):
             if datum.getPixel(x, y) > 0:
                 features[(x, y)] = 1
-                rowCounts[y] += 1
-                columnCounts[x] += 1
             else:
                 features[(x, y)] = 0
                 offPixels[(x, y)] = -1
@@ -104,62 +124,37 @@ def enhancedFeatureExtractorDigit(datum):
 
         return False
 
-    def getUnvisitedNeighbors(pixel, markDict):
-        allOffPixels = markDict.keys()
+    def isNotVisited(p):
+        return p in offPixels.keys() and offPixels[p] == -1
 
-        def isNeighbor(p):
-            x, y = pixel
-            px, py = p
+    def getUnvisitedNeighbors(pixel):
+        x, y = pixel
+        neighbors = [(x-1, y), (x+1, y), (x, y-1), (x, y+1),
+                      (x-1, y-1), (x-1, y+1), (x+1, y-1), (x+1, y+1)]
 
-            if (x-1) <= px <= (x+1) and \
-                (y-1) <= py <= (y+1) and \
-                markDict[p] == -1:
-                return True
+        validNeighbors = filter(isValid, neighbors)
+        return filter(isNotVisited, validNeighbors)
 
-            return False
-
-        return filter(isNeighbor, allOffPixels)
-
-    def DFS(pixel, markDict, markNumber):
+    def DFS(pixel, markNumber):
         if not isValid(pixel):
             return
 
-        markDict[pixel] = markNumber
+        offPixels[pixel] = markNumber
 
-        neighbors = getUnvisitedNeighbors(pixel, markDict)
+        neighbors = getUnvisitedNeighbors(pixel)
 
         for neighbor in neighbors:
-            DFS(neighbor, markDict, markNumber)
-
-    def isNotVisited(p):
-        return offPixels[p] == -1
+            DFS(neighbor, markNumber)
 
     currentMark = 0
+
     while filter(isNotVisited, offPixels.keys()):
         currentMark += 1
         unvisited = filter(isNotVisited, offPixels.keys())
-        DFS(unvisited[0], offPixels, currentMark)
+        DFS(unvisited[0], currentMark)
 
     for i in range(5):
         features[(-1, i)] = 0
-
-    for i in range(2):
-        features[(-2, i)] = 0
-        features[(-3, i)] = 0
-
-    leftBias = sum(columnCounts[:(len(columnCounts) / 2)]) * 1.0 / sum(columnCounts)
-    topBias = sum(rowCounts[:(len(rowCounts) / 2)]) * 1.0 / sum(rowCounts)
-    print leftBias
-    print topBias
-    if leftBias >= 0.5:
-        features[(-2, 0)] = 1
-    else:
-        features[(-2, 1)] = 1
-
-    if topBias >= 0.5:
-        features[(-3, 0)] = 1
-    else:
-        features[(-3, 1)] = 1
 
     features[(-1, currentMark)] = 1
     return features
