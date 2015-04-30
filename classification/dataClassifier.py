@@ -201,17 +201,31 @@ def enhancedPacmanFeatures(state, action):
 
     successor = state.generateSuccessor(0, action)
 
-    def manhattanDistance(p1, p2):
-        return abs(p1[0]-p2[0]) + abs(p1[1]-p2[1])
-
     pacmanPos = successor.getPacmanPosition()
     ghostStates = successor.getGhostStates()
+    capsulePositions = successor.getCapsules()
 
-    minGhostDistance = min([manhattanDistance(pacmanPos, x.getPosition())
+    minGhostDistance = min([util.manhattanDistance(pacmanPos, x.getPosition())
                             for x in ghostStates])
+
+    minCapsuleDistance = 0
+    if capsulePositions:
+        minCapsuleDistance = min([util.manhattanDistance(pacmanPos, x)
+                                  for x in capsulePositions])
+
+    foodLoc = successor.getFood()
+    nearestFood = min([util.manhattanDistance(pacmanPos, x) for x in foodLoc])
+
+    food = successor.getFood()
+    gridDist = food.width + food.height
+
     features = util.Counter()
+    # features['numCapsules'] = len(capsulePositions)
     features['minGhostDistance'] = minGhostDistance
-    features['numFood'] = successor.getNumFood()
+    features['numFood'] = successor.getNumFood() * 3
+    features['scaredTimer'] = max([x.scaredTimer for x in ghostStates])
+    features['score'] = successor.getScore()
+
     return features
 
 

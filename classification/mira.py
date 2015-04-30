@@ -63,7 +63,8 @@ class MiraClassifier:
         self.features = trainingData[0].keys() # could be useful later
         CWeights = {}
         for C in Cgrid:
-            CWeights[C] = self.weights
+            import copy
+            CWeights[C] = copy.deepcopy(self.weights)
 
         for c in Cgrid:
             weights = CWeights[c]
@@ -104,9 +105,9 @@ class MiraClassifier:
             for i in range(len(validationLabels)):
                 if validationLabels[i] == guesses[i]:
                     score = score + 1
-
             if score > bestScore:
                 bestC = c
+                bestScore = score
 
         self.weights = CWeights[bestC]
 
