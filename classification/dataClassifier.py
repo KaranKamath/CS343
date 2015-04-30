@@ -214,18 +214,48 @@ def enhancedPacmanFeatures(state, action):
                                   for x in capsulePositions])
 
     foodLoc = successor.getFood()
-    nearestFood = min([util.manhattanDistance(pacmanPos, x) for x in foodLoc])
+    foodDist = [util.manhattanDistance(pacmanPos, x) for x in foodLoc]
+
+    def getNearbyWallCount():
+        count = 0
+        neighbors = [(pacmanPos[0]-1, pacmanPos[1] - 1),
+                     (pacmanPos[0]-1, pacmanPos[1]),
+                     (pacmanPos[0]-1, pacmanPos[1] + 1),
+                     (pacmanPos[0], pacmanPos[1] - 1),
+                     (pacmanPos[0], pacmanPos[1] + 1),
+                     (pacmanPos[0]+1, pacmanPos[1] - 1),
+                     (pacmanPos[0]+1, pacmanPos[1]),
+                     (pacmanPos[0]+1, pacmanPos[1] + 1)]
+        for n in neighbors:
+            if successor.hasWall(n[0], n[1]):
+                count += 1
+
+        return count
 
     food = successor.getFood()
     gridDist = food.width + food.height
 
     features = util.Counter()
-    # features['numCapsules'] = len(capsulePositions)
-    features['minGhostDistance'] = minGhostDistance
-    features['numFood'] = successor.getNumFood() * 3
-    features['scaredTimer'] = max([x.scaredTimer for x in ghostStates])
-    features['score'] = successor.getScore()
 
+    features['minGhostDistance'] = minGhostDistance * 1.0 / 5
+    features['numFood'] = successor.getNumFood()
+    features['scaredTimer'] = max([x.scaredTimer for x in ghostStates])
+    features['score'] = successor.getScore() / 2.0
+    features['numActions'] = len(successor.getLegalActions())
+    features['walls'] = getNearbyWallCount()
+    features['ghostToCap'] = abs(minGhostDistance - minGhostDistance)
+
+    ply2 = []
+    for a in successor.getLegalActions(0):
+        ply2.append(successor.generateSuccessor(0, a))
+
+    if len(ply2):
+        ply2Food = sum([x.getNumFood() for x in ply2]) * 1.0 / len(ply2)
+        ply2Score = sum([x.getScore() for x in ply2]) * 1.0 / len(ply2)
+
+        features['ply2food'] = ply2Food
+        features['ply2score'] = ply2Score
+        
     return features
 
 
