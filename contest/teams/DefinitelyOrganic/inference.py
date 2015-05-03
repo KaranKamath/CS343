@@ -33,12 +33,29 @@ class InferenceModule:
         def getDistribution(state):
             actions = state.getLegalActions(self.index)
             prob = 1.0 / len( actions )
-            return [( prob, action ) for action in actions]
+            return [(action, prob ) for action in actions]
+
+        def getScoreDistribution(state):
+            actions = state.getLegalActions(self.index)
+            initScore = state.getScore()
+
+            pCounter = util.Counter()
+            for a in actions:
+                successor = state.generateSuccessor(self.index, a)
+                successorScore = successor.getScore()
+                if successorScore > initScore:
+                    pCounter[a] = 2
+                else:
+                    pCounter[a] = 1
+
+            pCounter.normalize()
+
+            return pCounter
 
         actionDist = getDistribution(gameState)
 
         dist = util.Counter()
-        for prob, action in actionDist:
+        for action, prob in actionDist:
             successorPosition = game.Actions.getSuccessor(ghostPosition, action)
             dist[successorPosition] = prob
         return dist

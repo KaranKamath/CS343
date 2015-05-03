@@ -49,8 +49,10 @@ class DefinitelyOrganicAgents(AgentFactory):
       return OffensiveReflexAgent(index)
     elif agentStr == 'defense':
       return DefensiveReflexAgent(index)
-    elif agentStr == 'smart':
-      return SmartAgent(index)
+    elif agentStr == 'smartoffense':
+      return SmartOffenseAgent(index)
+    elif agentStr == 'smartdefense':
+        return SmartDefenseAgent(index)
     else:
       raise Exception("No staff agent identified by " + agentStr)
 
@@ -181,6 +183,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     # Computes distance to invaders we can see
     enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
     invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+
     features['numInvaders'] = len(invaders)
     if len(invaders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
@@ -220,8 +223,10 @@ class IntelligentAgent(CaptureAgent):
     enemies = self.getOpponents(gameState)
 
     for e in enemies:
+        import copy
+        gsCopy = copy.deepcopy(gameState)
         self.pfilters[e] = inference.ParticleFilter(self.index, e, gameState.getInitialAgentPosition(e))
-        self.pfilters[e].initialize(gameState)
+        self.pfilters[e].initialize(gsCopy)
 
     import __main__
     if '_display' in dir(__main__):
@@ -239,8 +244,6 @@ class IntelligentAgent(CaptureAgent):
     Picks among the actions with the highest Q(s,a).
     """
     self.updateParticleFilters(gameState)
-    self.getEnemyDistances(gameState)
-
     self.updateInferenceUI(gameState)
 
     actions = gameState.getLegalActions(self.index)
@@ -291,19 +294,48 @@ class IntelligentAgent(CaptureAgent):
     """
     return {'successorScore': 1.0}
 
-  def getEnemyDistances(self, gameState):
-    opponents = self.getOpponents(gameState)
-    nds = gameState.getAgentDistances()
-
   def updateParticleFilters(self, gameState):
     opponents = self.getOpponents(gameState)
     nds = gameState.getAgentDistances()
     for opponent in opponents:
         pfilter = self.pfilters[opponent]
-        pfilter.observe(nds[opponent], gameState)
-        pfilter.elapseTime(gameState)
+        import copy
+        gsCopy = copy.deepcopy(gameState)
+        pfilter.observe(nds[opponent], gsCopy)
+        pfilter.elapseTime(gsCopy)
 
-class SmartAgent(IntelligentAgent):
+  def getEnemyLocationGuesses(self, gameState):
+    opponents = self.getOpponents(gameState)
+    locDict = {}
+    for opponent in opponents:
+        pfilter = self.pfilters[opponent]
+        locDict[opponent] = pfilter.getBeliefDistribution().argMax()
+
+    return locDict
+
+class SmartOffenseAgent(IntelligentAgent):
+  """
+  A reflex agent that seeks food. This is an agent
+  we give you to get an idea of what an offensive agent might look like,
+  but it is by no means the best or only way to build an offensive agent.
+  """
+  def getFeatures(self, gameState, action):
+    features = util.Counter()
+    successor = self.getSuccessor(gameState, action)
+    features['successorScore'] = self.getScore(successor)
+
+    # Compute distance to the nearest food
+    foodList = self.getFood(successor).asList()
+    if len(foodList) > 0: # This should always be True,  but better safe than sorry
+      myPos = successor.getAgentState(self.index).getPosition()
+      minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+      features['distanceToFood'] = minDistance
+    return features
+
+  def getWeights(self, gameState, action):
+    return {'successorScore': 100, 'distanceToFood': -1}
+
+class SmartDefenseAgent(IntelligentAgent):
   """
   A reflex agent that keeps its side Pacman-free. Again,
   this is to give you an idea of what a defensive agent
@@ -318,16 +350,20 @@ class SmartAgent(IntelligentAgent):
     myState = successor.getAgentState(self.index)
     myPos = myState.getPosition()
 
+    enemyLocs = self.getEnemyLocationGuesses(gameState)
+
     # Computes whether we're on defense (1) or offense (0)
     features['onDefense'] = 1
     if myState.isPacman: features['onDefense'] = 0
 
     # Computes distance to invaders we can see
-    enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
-    invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+    enemies = [(i, successor.getAgentState(i)) for i in self.getOpponents(successor)]
+    invaders = [(i, a) for (i, a) in enemies if a.isPacman and a.getPosition() != None]
+
     features['numInvaders'] = len(invaders)
+
     if len(invaders) > 0:
-      dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
+      dists = [self.getMazeDistance(myPos, enemyLocs[i]) for (i, a) in invaders]
       features['invaderDistance'] = min(dists)
 
     if action == Directions.STOP: features['stop'] = 1
