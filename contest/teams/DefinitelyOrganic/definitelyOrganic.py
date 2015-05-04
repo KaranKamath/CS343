@@ -51,10 +51,8 @@ class DefinitelyOrganicAgents(AgentFactory):
       return DefensiveReflexAgent(index)
     elif agentStr == 'smartoffense':
       return SmartOffenseAgent(index)
-    elif agentStr == 'smartdefense':
-        return SmartDefenseAgent(index)
-    elif agentStr == 'minimax':
-        return MiniMaxAgent(index)
+    elif agentStr == 'smartoffensev2':
+      return SmartOffenseAgentV2(index)
     else:
       raise Exception("No staff agent identified by " + agentStr)
 
@@ -317,188 +315,98 @@ class IntelligentAgent(CaptureAgent):
     return locDict
 
 class SmartOffenseAgent(IntelligentAgent):
-  """
-  A reflex agent that seeks food. This is an agent
-  we give you to get an idea of what an offensive agent might look like,
-  but it is by no means the best or only way to build an offensive agent.
-  """
-  def getFeatures(self, gameState, action):
-    features = util.Counter()
-    successor = self.getSuccessor(gameState, action)
-    features['successorScore'] = self.getScore(successor)
+    def getFeatures(self, gameState, action):
+        features = util.Counter()
+        successor = self.getSuccessor(gameState, action)
+        features['successorScore'] = self.getScore(successor)
 
-    # Compute distance to the nearest food
-    foodList = self.getFood(successor).asList()
-    if len(foodList) > 0: # This should always be True,  but better safe than sorry
-      myPos = successor.getAgentState(self.index).getPosition()
-      minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
-      features['distanceToFood'] = minDistance
-    return features
+        # Compute distance to the nearest food
+        foodList = self.getFood(successor).asList()
+        if len(foodList) > 0: # This should always be True,  but better safe than sorry
+          myPos = successor.getAgentState(self.index).getPosition()
+          minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+          features['distanceToFood'] = minDistance
 
-  def getWeights(self, gameState, action):
-    return {'successorScore': 100, 'distanceToFood': -1}
+        enemyLocs = self.getEnemyLocationGuesses(gameState)
+        minEnemyDist = min([self.getMazeDistance(myPos, p) for p in enemyLocs.values()])
 
-class SmartDefenseAgent(IntelligentAgent):
-  """
-  A reflex agent that keeps its side Pacman-free. Again,
-  this is to give you an idea of what a defensive agent
-  could be like.  It is not the best or only way to make
-  such an agent.
-  """
+        if minEnemyDist <= 2:
+            features['ghostDistance'] = minEnemyDist
 
-  def getFeatures(self, gameState, action):
-    features = util.Counter()
-    successor = self.getSuccessor(gameState, action)
+        return features
 
-    myState = successor.getAgentState(self.index)
-    myPos = myState.getPosition()
+    def getWeights(self, gameState, action):
+        return {'successorScore': 100, 'distanceToFood': -1, 'ghostDistance': 1}
 
-    enemyLocs = self.getEnemyLocationGuesses(gameState)
-
-    # Computes whether we're on defense (1) or offense (0)
-    features['onDefense'] = 1
-    if myState.isPacman: features['onDefense'] = 0
-
-    # Computes distance to invaders we can see
-    enemies = [(i, successor.getAgentState(i)) for i in self.getOpponents(successor)]
-    invaders = [(i, a) for (i, a) in enemies if a.isPacman and a.getPosition() != None]
-
-    features['numInvaders'] = len(invaders)
-
-    if len(invaders) > 0:
-      dists = [self.getMazeDistance(myPos, enemyLocs[i]) for (i, a) in invaders]
-      features['invaderDistance'] = min(dists)
-
-    if action == Directions.STOP: features['stop'] = 1
-    rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
-    if action == rev: features['reverse'] = 1
-
-    return features
-
-  def getWeights(self, gameState, action):
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2}
-
-class MiniMaxAgent(IntelligentAgent):
-    """
-      Your minimax agent with alpha-beta pruning (question 3)
-    """
-
-    def isARoguePacman(self, state, agent, agentPos):
-        initEnemyY = state.getInitialAgentPosition(agent)[1]
-        initFriendlyY = 0
-        if agent > 0:
-            initFriendlyY = state.getInitialAgentPosition(agent-1)[1]
-        else:
-            initFriendlyY = state.getInitialAgentPosition(agent+1)[1]
-
-        if initFriendlyY == 0 and agentPos[1] < initEnemyY / 2:
-            return True
-
-        if initEnemyY == 0 and agentPos[1] > initFriendlyY / 2:
-            return True
-
-        return False
-
-    def evaluationFunction(self, state):
-        evalVal = 0
-        myState = state.getAgentState(self.index)
-
-        if not myState.isPacman:
-            evalVal = -1000
-
-        if self.red:
-            blueFood = state.getBlueFood()
-            evalVal += -1 * blueFood.count()
-            minBlueFoodDist = min(\
-                [self.distancer.getDistance(p, myState.getPosition()) \
-                for p in blueFood.asList()])
-            evalVal += -1 * minBlueFoodDist
-        else:
-            redFood = state.getRedFood()
-            evalVal += -1 * redFood.count()
-            minRedFoodDist = min(\
-                [self.distancer.getDistance(p, myState.getPosition()) \
-                for p in redFood.asList()])
-            evalVal += -1 * minRedFoodDist
-        return evalVal
-
-    def getCopyOfGameStateWithLikelyOpponentPositions(self, gameState):
-        import copy
-        gsCopy = copy.deepcopy(gameState)
-
-        enemyLocs = self.getEnemyLocationGuesses(gsCopy)
-
-        #print 'get copy ',enemyLocs
-
-        for enemy in enemyLocs.keys():
-            conf = game.Configuration(enemyLocs[enemy], game.Directions.STOP)
-            gsCopy.data.agentStates[enemy] = \
-                game.AgentState(conf, self.isARoguePacman(gsCopy, enemy, enemyLocs[enemy]))
-
-        return gsCopy
-
-    def chooseAction(self, originalGameState):
+    def chooseAction(self, gameState):
         """
-          Returns the minimax action using self.depth and self.evaluationFunction
+        Picks among the actions with the highest Q(s,a).
         """
-        start = time.time()
+        self.updateParticleFilters(gameState)
+        self.updateInferenceUI(gameState)
 
-        self.updateParticleFilters(originalGameState)
+        actions = gameState.getLegalActions(self.index)
 
-        gameState = self.getCopyOfGameStateWithLikelyOpponentPositions(originalGameState)
+        # You can profile your evaluation time by uncommenting these lines
+        # start = time.time()
+        values = [self.evaluate(gameState, a) for a in actions]
+        # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
 
-        self.depth = 2
+        maxValue = max(values)
+        bestActions = [a for a, v in zip(actions, values) if v == maxValue]
 
-        import sys
+        return random.choice(bestActions)
 
-        def isMin(agent):
-            return agent in self.getOpponents(gameState)
+class SmartOffenseAgentV2(IntelligentAgent):
+    def getFeatures(self, gameState, action):
+        features = util.Counter()
+        successor = self.getSuccessor(gameState, action)
+        features['successorScore'] = self.getScore(successor)
 
-        def isMax(agent):
-            return agent not in self.getOpponents(gameState)
+        # Compute distance to the nearest food
+        foodList = self.getFood(successor).asList()
+        if len(foodList) > 0: # This should always be True,  but better safe than sorry
+          myPos = successor.getAgentState(self.index).getPosition()
+          minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+          features['distanceToFood'] = minDistance
 
-        def isTerminal(state):
-            return state.getBlueFood().count() <= 2 or \
-                   state.getRedFood().count() <= 2
+        teamIndices = self.getTeam(gameState)
+        teamIndices.remove(self.index)
+        minTeamDist = 0
 
-        def minval(state, agent, depth, alpha, beta):
-            v = (sys.maxint, None)
-            actions = state.getLegalActions(agent)
+        if teamIndices is not None:
+            teamDistances = [self.getMazeDistance(myPos, gameState.getAgentState(p).getPosition()) \
+                               for p in teamIndices]
+            minTeamDist = min(teamDistances)
+            features['minTeamDistance'] = minTeamDist
 
-            for a in actions:
-                actionUtil = value(state.generateSuccessor(agent, a), agent + 1, depth, alpha, beta)
-                v = min([v, (actionUtil[0], a)], key=lambda x: x[0])
-                if v[0] < alpha:
-                    return v
-                beta = min([beta, v[0]])
-            return v
+        enemyLocs = self.getEnemyLocationGuesses(gameState)
+        minEnemyDist = min([self.getMazeDistance(myPos, p) for p in enemyLocs.values()])
 
-        def maxval(state, agent, depth, alpha, beta):
-            v = (-sys.maxint-1, None)
-            actions = state.getLegalActions(agent)
-            for a in actions:
-                actionUtil = value(state.generateSuccessor(agent, a), agent + 1, depth, alpha, beta)
-                v = max([v, (actionUtil[0], a)], key=lambda x: x[0])
-                if v[0] > beta:
-                    return v
-                alpha = max([alpha, v[0]])
-            return v
+        if minEnemyDist <= 2:
+            features['ghostDistance'] = minEnemyDist
 
-        def value(state, agent, depth, alpha, beta):
-            if agent == (len(self.getOpponents(state)) * 2):
-                depth += 1
-                agent = 0
+        return features
 
-            if depth > self.depth or isTerminal(state):
-                return self.evaluationFunction(state), None
+    def getWeights(self, gameState, action):
+        return {'successorScore': 100, 'distanceToFood': -1, 'ghostDistance': 1,
+                'minTeamDistance': 0.5}
 
-            if isMax(agent):
-                return maxval(state, agent, depth, alpha, beta)
+    def chooseAction(self, gameState):
+        """
+        Picks among the actions with the highest Q(s,a).
+        """
+        self.updateParticleFilters(gameState)
+        self.updateInferenceUI(gameState)
 
-            if isMin(agent):
-                return minval(state, agent, depth, alpha, beta)
+        actions = gameState.getLegalActions(self.index)
 
-        v = value(gameState, self.index, 1, -sys.maxint-1, sys.maxint)[1]
-        print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
-        print v
-        return v
+        # You can profile your evaluation time by uncommenting these lines
+        # start = time.time()
+        values = [self.evaluate(gameState, a) for a in actions]
+        # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
+
+        maxValue = max(values)
+        bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+
+        return random.choice(bestActions)
