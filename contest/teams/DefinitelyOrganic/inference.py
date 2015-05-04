@@ -274,13 +274,13 @@ class ExactInference(InferenceModule):
                 if gameState.getDistanceProb(trueDistance, noisyDistance) > 0:
                     allPossible[p] = gameState.getDistanceProb(trueDistance, noisyDistance) * self.beliefs[p]
             allPossible.normalize()
-        else:
-            self.initializeUniformly(gameState)
 
-        if len(set(allPossible.keys())) == 0:
-            self.initializeUniformly(gameState)
+            if len(set(allPossible.keys())) == 0:
+                self.initializeUniformly(gameState)
+            else:
+                self.beliefs = allPossible
         else:
-            self.beliefs = allPossible
+            self.initializeUniformly(gameState)
 
     def elapseTime(self, gameState):
         """
@@ -302,8 +302,8 @@ class ExactInference(InferenceModule):
         beliefs = self.getBeliefDistribution()
         beliefs.normalize()
 
-        if beliefs[val] > 0.2:
-            beliefs[val] = 1
+        if beliefs[val] > 0.15:
+            beliefs[val] = 1.0
 
         beliefs.normalize()
         self.beliefs = beliefs
