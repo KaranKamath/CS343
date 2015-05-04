@@ -425,17 +425,17 @@ class SmartOffenseAgentV2(IntelligentAgent):
         elif minEnemyDist <= 2 and not gameState.getAgentState(self.index).isPacman:
              features['ghostDistance'] = -minEnemyDist
 
-        #
-        # capsules = self.getCapsules(gameState)
-        # if len(capsules):
-        #     features['minCapsuleDist'] = min([self.getMazeDistance(myPos, c)\
-        #         for c in capsules])
+
+        capsules = self.getCapsules(gameState)
+        if len(capsules):
+            features['minCapsuleDist'] = min([self.getMazeDistance(myPos, c)\
+                for c in capsules])
 
         return features
 
     def getWeights(self, gameState, action):
-        return {'successorScore': 100, 'distanceToFood': -1, 'ghostDistance': 1,
-                'minTeamDistance': 0.7}
+        return {'successorScore': 100, 'distanceToFood': -1, 'ghostDistance': 10,
+                'minCapsuleDist': -1}
 
     def chooseAction(self, gameState):
         """

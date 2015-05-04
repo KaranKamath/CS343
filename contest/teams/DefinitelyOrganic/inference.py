@@ -256,7 +256,8 @@ class ExactInference(InferenceModule):
     def initializeUniformly(self, gameState):
         "Begin with a uniform distribution over ghost positions."
         self.beliefs = util.Counter()
-        for p in self.legalPositions: self.beliefs[p] = 1.0
+        for p in self.legalPositions:
+            self.beliefs[p] = 1.0
         self.beliefs.normalize()
 
     def observe(self, observation, gameState):
@@ -267,17 +268,19 @@ class ExactInference(InferenceModule):
 
         allPossible = util.Counter()
 
-        if noisyDistance is None:
-            allPossible[self.getJailPosition()] = 1.0
-
-        else:
+        if noisyDistance is not None:
             for p in self.legalPositions:
                 trueDistance = util.manhattanDistance(p, myPosition)
                 if gameState.getDistanceProb(trueDistance, noisyDistance) > 0:
                     allPossible[p] = gameState.getDistanceProb(trueDistance, noisyDistance) * self.beliefs[p]
+            allPossible.normalize()
+        else:
+            self.initializeUniformly(gameState)
 
-        allPossible.normalize()
-        self.beliefs = allPossible
+        if len(set(allPossible.keys())) == 0:
+            self.initializeUniformly(gameState)
+        else:
+            self.beliefs = allPossible
 
     def elapseTime(self, gameState):
         """
