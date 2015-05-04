@@ -234,6 +234,9 @@ class IntelligentAgent(CaptureAgent):
         self.pfilters[e] = inference.ExactInference(self.index, e, gameState.getInitialAgentPosition(e))
         self.pfilters[e].initialize(gsCopy)
 
+    import searchAgents
+    allFoodProblem = searchAgents.FoodSearchProblem(gameState, self.index)
+
     import __main__
     if '_display' in dir(__main__):
       self.display = __main__._display
@@ -420,11 +423,16 @@ class SmartOffenseAgentV2(IntelligentAgent):
         enemyLocs = self.getEnemyLocationGuesses(gameState)
         minEnemyDist = min([self.getMazeDistance(myPos, p) for p in enemyLocs.values()])
 
-        if minEnemyDist <= 2 and gameState.getAgentState(self.index).isPacman:
-             features['ghostDistance'] = minEnemyDist
-        elif minEnemyDist <= 2 and not gameState.getAgentState(self.index).isPacman:
-             features['ghostDistance'] = -minEnemyDist
-
+        myState = gameState.getAgentState(self.index)
+        #
+        # if myState.isPacman:
+        #     if minEnemyDist < 3:
+        #         features['ghostDistance'] = minEnemyDist
+        #         print "evader"
+        # else:
+        #     if myState.scaredTimer == 0 and minEnemyDist < 3:
+        #         features['ghostDistance'] = -minEnemyDist
+        #         print "Hunter"
 
         capsules = self.getCapsules(gameState)
         if len(capsules):

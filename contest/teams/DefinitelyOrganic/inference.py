@@ -275,7 +275,7 @@ class ExactInference(InferenceModule):
                     allPossible[p] = gameState.getDistanceProb(trueDistance, noisyDistance) * self.beliefs[p]
             allPossible.normalize()
 
-            if len(set(allPossible.keys())) == 0:
+            if len(set(allPossible.keys())) == 0 or sum(allPossible.values()) < 0.1:
                 self.initializeUniformly(gameState)
             else:
                 self.beliefs = allPossible
