@@ -370,8 +370,8 @@ class SmartOffenseAgentV2(IntelligentAgent):
         if len(foodList) > 0: # This should always be True,  but better safe than sorry
           myPos = successor.getAgentState(self.index).getPosition()
           minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
-          #bottomMostFood = min(foodList, key = lambda x: )
-          features['distanceToFood'] = minDistance
+          bottomMostFood = min(foodList, key = lambda x: x[1])
+          features['distanceToFood'] = self.getMazeDistance(myPos, bottomMostFood)
 
         teamIndices = self.getTeam(gameState)
         teamIndices.remove(self.index)
