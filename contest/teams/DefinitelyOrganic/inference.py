@@ -35,23 +35,6 @@ class InferenceModule:
             prob = 1.0 / len( actions )
             return [(action, prob ) for action in actions]
 
-        def getScoreDistribution(state):
-            actions = state.getLegalActions(self.index)
-            initScore = state.getScore()
-
-            pCounter = util.Counter()
-            for a in actions:
-                successor = state.generateSuccessor(self.index, a)
-                successorScore = successor.getScore()
-                if successorScore > initScore:
-                    pCounter[a] = 2
-                else:
-                    pCounter[a] = 1
-
-            pCounter.normalize()
-
-            return pCounter
-
         actionDist = getDistribution(gameState)
 
         dist = util.Counter()
@@ -88,7 +71,6 @@ class InferenceModule:
 
     def initialize(self, gameState):
         "Initializes beliefs to a uniform distribution over all positions."
-        # The legal positions do not include the ghost prison cells in the bottom left.
         self.legalPositions = [p for p in gameState.getWalls().asList(False) if p[1] > 1]
         self.initializeUniformly(gameState)
 
@@ -185,7 +167,6 @@ class ParticleFilter(InferenceModule):
         distance between a particle and Pacman's position.
         """
         noisyDistance = observation
-        #emissionModel = gameState.getDistanceProb(noisyDistance)
 
         myPosition = gameState.getAgentPosition(self.trackingAgentIndex)
 

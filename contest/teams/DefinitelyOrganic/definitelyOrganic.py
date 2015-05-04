@@ -53,6 +53,8 @@ class DefinitelyOrganicAgents(AgentFactory):
       return SmartOffenseAgent(index)
     elif agentStr == 'smartdefense':
         return SmartDefenseAgent(index)
+    elif agentStr == 'minimax':
+        return MiniMaxAgent(index)
     else:
       raise Exception("No staff agent identified by " + agentStr)
 
@@ -310,6 +312,7 @@ class IntelligentAgent(CaptureAgent):
     for opponent in opponents:
         pfilter = self.pfilters[opponent]
         locDict[opponent] = pfilter.getBeliefDistribution().argMax()
+        locDict[opponent] = (int(locDict[opponent][0]), int(locDict[opponent][1]))
 
     return locDict
 
@@ -375,6 +378,102 @@ class SmartDefenseAgent(IntelligentAgent):
   def getWeights(self, gameState, action):
     return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2}
 
+class MiniMaxAgent(IntelligentAgent):
+    """
+      Your minimax agent with alpha-beta pruning (question 3)
+    """
 
+    def isARoguePacman(self, state, agent, agentPos):
+        initEnemyY = state.getInitialAgentPosition(agent)[1]
+        initFriendlyY = 0
+        if agent > 0:
+            initFriendlyY = state.getInitialAgentPosition(agent-1)[1]
+        else:
+            initFriendlyY = state.getInitialAgentPosition(agent+1)[1]
 
+        if initFriendlyY == 0 and agentPos[1] < initEnemyY / 2:
+            return True
 
+        if initEnemyY == 0 and agentPos[1] > initFriendlyY / 2:
+            return True
+
+        return False
+
+    def evaluationFunction(self, state):
+        return self.getScore(state)
+
+    def getCopyOfGameStateWithLikelyOpponentPositions(self, gameState):
+        import copy
+        gsCopy = copy.deepcopy(gameState)
+
+        enemyLocs = self.getEnemyLocationGuesses(gsCopy)
+
+        #print 'get copy ',enemyLocs
+
+        for enemy in enemyLocs.keys():
+            conf = game.Configuration(enemyLocs[enemy], game.Directions.STOP)
+            gsCopy.data.agentStates[enemy] = \
+                game.AgentState(conf, self.isARoguePacman(gsCopy, enemy, enemyLocs[enemy]))
+
+        return gsCopy
+
+    def chooseAction(self, originalGameState):
+        """
+          Returns the minimax action using self.depth and self.evaluationFunction
+        """
+        self.updateParticleFilters(originalGameState)
+
+        gameState = self.getCopyOfGameStateWithLikelyOpponentPositions(originalGameState)
+
+        self.depth = 2
+
+        import sys
+
+        def isMin(agent):
+            return agent in self.getOpponents(gameState)
+
+        def isMax(agent):
+            return agent not in self.getOpponents(gameState)
+
+        def isTerminal(state):
+            return state.getBlueFood().count() <= 2 or \
+                   state.getRedFood().count() <= 2
+
+        def minval(state, agent, depth, alpha, beta):
+            v = (sys.maxint, None)
+            actions = state.getLegalActions(agent)
+
+            for a in actions:
+                actionUtil = value(state.generateSuccessor(agent, a), agent + 1, depth, alpha, beta)
+                v = min([v, (actionUtil[0], a)], key=lambda x: x[0])
+                if v[0] < alpha:
+                    return v
+                beta = min([beta, v[0]])
+            return v
+
+        def maxval(state, agent, depth, alpha, beta):
+            v = (-sys.maxint-1, None)
+            actions = state.getLegalActions(agent)
+            for a in actions:
+                actionUtil = value(state.generateSuccessor(agent, a), agent + 1, depth, alpha, beta)
+                v = max([v, (actionUtil[0], a)], key=lambda x: x[0])
+                if v[0] > beta:
+                    return v
+                alpha = max([alpha, v[0]])
+            return v
+
+        def value(state, agent, depth, alpha, beta):
+            if agent == (len(self.getOpponents(state)) * 2):
+                depth += 1
+                agent = 0
+
+            if depth > self.depth or isTerminal(state):
+                return self.evaluationFunction(state), None
+
+            if isMax(agent):
+                return maxval(state, agent, depth, alpha, beta)
+
+            if isMin(agent):
+                return minval(state, agent, depth, alpha, beta)
+
+        return value(gameState, self.index, 1, -sys.maxint-1, sys.maxint)[1]
