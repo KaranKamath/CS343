@@ -420,9 +420,9 @@ class SmartOffenseAgentV2(IntelligentAgent):
         enemyLocs = self.getEnemyLocationGuesses(gameState)
         minEnemyDist = min([self.getMazeDistance(myPos, p) for p in enemyLocs.values()])
 
-        if minEnemyDist <= 5 and gameState.getAgentState(self.index).isPacman:
+        if minEnemyDist <= 2 and gameState.getAgentState(self.index).isPacman:
              features['ghostDistance'] = minEnemyDist
-        elif minEnemyDist <= 5 and not gameState.getAgentState(self.index).isPacman:
+        elif minEnemyDist <= 2 and not gameState.getAgentState(self.index).isPacman:
              features['ghostDistance'] = -minEnemyDist
 
         #
