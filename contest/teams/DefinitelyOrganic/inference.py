@@ -113,7 +113,7 @@ class ParticleFilter(InferenceModule):
     Counter by treating its values as probabilities.
     """
 
-    def __init__(self, trackingAgentIndex, agentIndex, agentInitPos, numParticles=300):
+    def __init__(self, trackingAgentIndex, agentIndex, agentInitPos, numParticles=100):
         InferenceModule.__init__(self, agentIndex, agentInitPos);
         self.setNumParticles(numParticles)
         self.trackingAgentIndex = trackingAgentIndex
@@ -237,3 +237,70 @@ class ParticleFilter(InferenceModule):
         for particle in set(self.particles):
             beliefs[particle] = self.particles.count(particle) * 1.0 / self.numParticles
         return beliefs
+
+    def floodIfPossible(self, val):
+        beliefs = self.getBeliefDistribution()
+        minDist = min([util.manhattanDistance(p, val) for p in self.particles])
+        if minDist < 2:
+            self.particles = [val] * self.numParticles
+
+class ExactInference(InferenceModule):
+    """
+    The exact dynamic inference module should use forward-algorithm updates to
+    compute the exact belief function at each time step.
+    """
+    def __init__(self, trackingAgentIndex, agentIndex, agentInitPos):
+        InferenceModule.__init__(self, agentIndex, agentInitPos);
+        self.trackingAgentIndex = trackingAgentIndex
+
+    def initializeUniformly(self, gameState):
+        "Begin with a uniform distribution over ghost positions."
+        self.beliefs = util.Counter()
+        for p in self.legalPositions: self.beliefs[p] = 1.0
+        self.beliefs.normalize()
+
+    def observe(self, observation, gameState):
+        """
+        """
+        noisyDistance = observation
+        myPosition = gameState.getAgentPosition(self.trackingAgentIndex)
+
+        allPossible = util.Counter()
+
+        if noisyDistance is None:
+            allPossible[self.getJailPosition()] = 1.0
+
+        else:
+            for p in self.legalPositions:
+                trueDistance = util.manhattanDistance(p, myPosition)
+                if gameState.getDistanceProb(trueDistance, noisyDistance) > 0:
+                    allPossible[p] = gameState.getDistanceProb(trueDistance, noisyDistance) * self.beliefs[p]
+
+        allPossible.normalize()
+        self.beliefs = allPossible
+
+    def elapseTime(self, gameState):
+        """
+        """
+        allPossible = util.Counter()
+        for p in self.legalPositions:
+            newPosDist = self.getPositionDistribution(self.setGhostPosition(gameState, p))
+
+            for newPos, prob in newPosDist.items():
+                allPossible[newPos] += prob * self.beliefs[p]
+
+        allPossible.normalize()
+        self.beliefs = allPossible
+
+    def getBeliefDistribution(self):
+        return self.beliefs
+
+    def floodIfPossible(self, val):
+        beliefs = self.getBeliefDistribution()
+        beliefs.normalize()
+
+        if beliefs[val] > 0.2:
+            beliefs[val] = 1
+
+        beliefs.normalize()
+        self.beliefs = beliefs

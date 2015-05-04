@@ -222,10 +222,16 @@ class IntelligentAgent(CaptureAgent):
     self.pfilters = {}
     enemies = self.getOpponents(gameState)
 
+    # for e in enemies:
+    #     import copy
+    #     gsCopy = copy.deepcopy(gameState)
+    #     self.pfilters[e] = inference.ParticleFilter(self.index, e, gameState.getInitialAgentPosition(e))
+    #     self.pfilters[e].initialize(gsCopy)
+    #
     for e in enemies:
         import copy
         gsCopy = copy.deepcopy(gameState)
-        self.pfilters[e] = inference.ParticleFilter(self.index, e, gameState.getInitialAgentPosition(e))
+        self.pfilters[e] = inference.ExactInference(self.index, e, gameState.getInitialAgentPosition(e))
         self.pfilters[e].initialize(gsCopy)
 
     import __main__
@@ -294,7 +300,12 @@ class IntelligentAgent(CaptureAgent):
     """
     return {'successorScore': 1.0}
 
+  def floodCorrectPfilter(self, pos):
+      for pfilter in self.pfilters.values():
+          pfilter.floodIfPossible(pos)
+
   def updateParticleFilters(self, gameState):
+    self.floodFiltersOnHistory(gameState)
     opponents = self.getOpponents(gameState)
     nds = gameState.getAgentDistances()
     for opponent in opponents:
@@ -303,6 +314,28 @@ class IntelligentAgent(CaptureAgent):
         gsCopy = copy.deepcopy(gameState)
         pfilter.observe(nds[opponent], gsCopy)
         pfilter.elapseTime(gsCopy)
+
+  def floodFiltersOnHistory(self, gameState):
+    prevState = self.getPreviousObservation()
+    if prevState is not None:
+        prevPos = prevState.getAgentState(self.index).getPosition()
+        currPos = gameState.getAgentState(self.index).getPosition()
+        dist = self.getMazeDistance(currPos, prevPos)
+        if dist > 1:
+            self.floodCorrectPfilter(prevPos)
+
+        foodEatenPos = None
+        if not gameState.isOnRedTeam(self.index):
+            prevFood = prevState.getBlueFood().asList()
+            currFood = gameState.getBlueFood().asList()
+            foodEatenPos = set(prevFood) - set(currFood)
+        else:
+            prevFood = prevState.getRedFood().asList()
+            currFood = gameState.getRedFood().asList()
+            foodEatenPos = set(prevFood) - set(currFood)
+
+        if len(foodEatenPos) > 0:
+            self.floodCorrectPfilter(list(foodEatenPos)[0])
 
   def getEnemyLocationGuesses(self, gameState):
     opponents = self.getOpponents(gameState)
@@ -330,10 +363,10 @@ class SmartOffenseAgent(IntelligentAgent):
         enemyLocs = self.getEnemyLocationGuesses(gameState)
         minEnemyDist = min([self.getMazeDistance(myPos, p) for p in enemyLocs.values()])
 
-        if minEnemyDist <= 3 and gameState.getAgentState(self.index).isPacman:
-            features['ghostDistance'] = minEnemyDist
-        elif minEnemyDist <= 3 and not gameState.getAgentState(self.index).isPacman:
-            features['ghostDistance'] = -minEnemyDist
+        # if minEnemyDist <= 3 and gameState.getAgentState(self.index).isPacman:
+        #     features['ghostDistance'] = minEnemyDist
+        # elif minEnemyDist <= 3 and not gameState.getAgentState(self.index).isPacman:
+        #     features['ghostDistance'] = -minEnemyDist
 
         return features
 
@@ -388,9 +421,9 @@ class SmartOffenseAgentV2(IntelligentAgent):
         minEnemyDist = min([self.getMazeDistance(myPos, p) for p in enemyLocs.values()])
 
         if minEnemyDist <= 5 and gameState.getAgentState(self.index).isPacman:
-            features['ghostDistance'] = minEnemyDist
+             features['ghostDistance'] = minEnemyDist
         elif minEnemyDist <= 5 and not gameState.getAgentState(self.index).isPacman:
-            features['ghostDistance'] = -minEnemyDist
+             features['ghostDistance'] = -minEnemyDist
 
         #
         # capsules = self.getCapsules(gameState)
@@ -401,13 +434,14 @@ class SmartOffenseAgentV2(IntelligentAgent):
         return features
 
     def getWeights(self, gameState, action):
-        return {'successorScore': 100, 'distanceToFood': -0.1, 'ghostDistance': 1,
+        return {'successorScore': 100, 'distanceToFood': -1, 'ghostDistance': 1,
                 'minTeamDistance': 0.7}
 
     def chooseAction(self, gameState):
         """
         Picks among the actions with the highest Q(s,a).
         """
+
         self.updateParticleFilters(gameState)
         self.updateInferenceUI(gameState)
 
