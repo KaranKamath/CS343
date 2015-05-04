@@ -400,7 +400,27 @@ class MiniMaxAgent(IntelligentAgent):
         return False
 
     def evaluationFunction(self, state):
-        return self.getScore(state)
+        evalVal = 0
+        myState = state.getAgentState(self.index)
+
+        if not myState.isPacman:
+            evalVal = -1000
+
+        if self.red:
+            blueFood = state.getBlueFood()
+            evalVal += -1 * blueFood.count()
+            minBlueFoodDist = min(\
+                [self.distancer.getDistance(p, myState.getPosition()) \
+                for p in blueFood.asList()])
+            evalVal += -1 * minBlueFoodDist
+        else:
+            redFood = state.getRedFood()
+            evalVal += -1 * redFood.count()
+            minRedFoodDist = min(\
+                [self.distancer.getDistance(p, myState.getPosition()) \
+                for p in redFood.asList()])
+            evalVal += -1 * minRedFoodDist
+        return evalVal
 
     def getCopyOfGameStateWithLikelyOpponentPositions(self, gameState):
         import copy
@@ -421,6 +441,8 @@ class MiniMaxAgent(IntelligentAgent):
         """
           Returns the minimax action using self.depth and self.evaluationFunction
         """
+        start = time.time()
+
         self.updateParticleFilters(originalGameState)
 
         gameState = self.getCopyOfGameStateWithLikelyOpponentPositions(originalGameState)
@@ -476,4 +498,7 @@ class MiniMaxAgent(IntelligentAgent):
             if isMin(agent):
                 return minval(state, agent, depth, alpha, beta)
 
-        return value(gameState, self.index, 1, -sys.maxint-1, sys.maxint)[1]
+        v = value(gameState, self.index, 1, -sys.maxint-1, sys.maxint)[1]
+        print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
+        print v
+        return v
