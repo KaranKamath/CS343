@@ -330,8 +330,10 @@ class SmartOffenseAgent(IntelligentAgent):
         enemyLocs = self.getEnemyLocationGuesses(gameState)
         minEnemyDist = min([self.getMazeDistance(myPos, p) for p in enemyLocs.values()])
 
-        if minEnemyDist <= 2:
+        if minEnemyDist <= 3 and gameState.getAgentState(self.index).isPacman:
             features['ghostDistance'] = minEnemyDist
+        elif minEnemyDist <= 3 and not gameState.getAgentState(self.index).isPacman:
+            features['ghostDistance'] = -minEnemyDist
 
         return features
 
@@ -368,6 +370,7 @@ class SmartOffenseAgentV2(IntelligentAgent):
         if len(foodList) > 0: # This should always be True,  but better safe than sorry
           myPos = successor.getAgentState(self.index).getPosition()
           minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+          #bottomMostFood = min(foodList, key = lambda x: )
           features['distanceToFood'] = minDistance
 
         teamIndices = self.getTeam(gameState)
@@ -378,19 +381,28 @@ class SmartOffenseAgentV2(IntelligentAgent):
             teamDistances = [self.getMazeDistance(myPos, gameState.getAgentState(p).getPosition()) \
                                for p in teamIndices]
             minTeamDist = min(teamDistances)
-            features['minTeamDistance'] = minTeamDist
+            if minTeamDist <= 10 & gameState.getAgentState(self.index).isPacman:
+                features['minTeamDistance'] = minTeamDist
 
         enemyLocs = self.getEnemyLocationGuesses(gameState)
         minEnemyDist = min([self.getMazeDistance(myPos, p) for p in enemyLocs.values()])
 
-        if minEnemyDist <= 2:
+        if minEnemyDist <= 5 and gameState.getAgentState(self.index).isPacman:
             features['ghostDistance'] = minEnemyDist
+        elif minEnemyDist <= 5 and not gameState.getAgentState(self.index).isPacman:
+            features['ghostDistance'] = -minEnemyDist
+
+        #
+        # capsules = self.getCapsules(gameState)
+        # if len(capsules):
+        #     features['minCapsuleDist'] = min([self.getMazeDistance(myPos, c)\
+        #         for c in capsules])
 
         return features
 
     def getWeights(self, gameState, action):
-        return {'successorScore': 100, 'distanceToFood': -1, 'ghostDistance': 1,
-                'minTeamDistance': 0.5}
+        return {'successorScore': 100, 'distanceToFood': -0.1, 'ghostDistance': 1,
+                'minTeamDistance': 0.7}
 
     def chooseAction(self, gameState):
         """
