@@ -53,6 +53,8 @@ class DefinitelyOrganicAgents(AgentFactory):
       return SmartOffenseAgent(index)
     elif agentStr == 'smartoffensev2':
       return SmartOffenseAgentV2(index)
+    elif agentStr == 'smartoffensev3':
+      return SmartOffenseAgentV3(index)
     else:
       raise Exception("No staff agent identified by " + agentStr)
 
@@ -198,6 +200,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
   def getWeights(self, gameState, action):
     return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2}
 
+from game import Actions
 class IntelligentAgent(CaptureAgent):
   """
   A base class for reflex agents that chooses score-maximizing actions
@@ -244,6 +247,11 @@ class IntelligentAgent(CaptureAgent):
         dList[k] = self.pfilters[k].getBeliefDistribution()
 
     self.displayDistributionsOverPositions(dList)
+
+  def getNextPosition(self, currentPosition, action):
+    x, y = currentPosition
+    dx, dy = Actions.directionToVector(action)
+    return (int(x + dx), int(y + dy))
 
   def chooseAction(self, gameState):
     """
@@ -346,6 +354,11 @@ class IntelligentAgent(CaptureAgent):
         locDict[opponent] = (int(locDict[opponent][0]), int(locDict[opponent][1]))
 
     return locDict
+
+  def getLegalTerritory(self, position, walls):
+    surroundingCells = Actions.getLegalNeighbors(position, walls)
+    surroundingCells.append(position)
+    return surroundingCells
 
 class SmartOffenseAgent(IntelligentAgent):
     def getFeatures(self, gameState, action):
@@ -467,3 +480,99 @@ class SmartOffenseAgentV2(IntelligentAgent):
         # bestActions = [a for a, v in zip(actions, values) if v == maxValue]
         #
         # return random.choice(bestActions)
+
+class SmartOffenseAgentV3(IntelligentAgent):
+
+    def getFeatures(self, gameState, action):
+
+        features = util.Counter()
+        successorState = self.getSuccessor(gameState, action)
+        currentFood = self.getFood(gameState).asList()
+        currentWalls = gameState.getWalls()
+        currentAgentState = gameState.getAgentState(self.index)
+        currentAgentPosition = currentAgentState.getPosition()
+        nextAgentState = successorState.getAgentState(self.index)
+        nextAgentPosition = self.getNextPosition(currentAgentState.getPosition(), action)
+
+        isNextPacMan = nextAgentState.isPacman
+
+        currentTeamPositions = [gameState.getAgentState(t).getPosition() \
+                                for t in self.getTeam(gameState)]
+
+        currentEnemyStates = [gameState.getAgentState(e) \
+                                 for e in self.getOpponents(gameState)]
+
+        enemyPacmenInRange = [e for e in currentEnemyStates \
+                              if e.isPacman and e.getPosition() is not None]
+
+        enemyGhostsInRange = [e for e in currentEnemyStates \
+                              if not e.isPacman and e.getPosition() is not None]
+
+        gridHeight = currentWalls.height
+
+        teamSize = len(currentTeamPositions)
+
+        agentFoodIndex = ((gridHeight + self.index) / 2) % teamSize
+        foodDivider = gridHeight / teamSize
+
+        for e in enemyGhostsInRange:
+            enemyGhostTerritory = self.getLegalTerritory(e.getPosition(), currentWalls)
+            if nextAgentPosition in enemyGhostTerritory:
+                if e.scaredTimer:
+                    features['enemyScaredGhost'] += 1
+                else:
+                    features['enemyGhost'] += 1
+
+        for e in enemyPacmenInRange:
+            enemyPacmanTerritory = self.getLegalTerritory(e.getPosition(), currentWalls)
+            if nextAgentPosition in enemyPacmanTerritory:
+                if currentAgentState.scaredTimer:
+                    features['enemyScaryPacman'] += 1
+                else:
+                    features['enemyPacman'] += 1
+
+        if not features['enemyGhost'] and not features['enemyScaryPacman']:
+            if nextAgentPosition in currentFood:
+                features['foodNext'] = 1
+
+            agentFood = [f for f in currentFood if f[1] / foodDivider == agentFoodIndex]
+
+            if len(agentFood):
+                features['minFoodDistance'] = min(\
+                    [self.getMazeDistance(nextAgentPosition, f) for f in agentFood])
+            else:
+                features['minFoodDistance'] = \
+                    min([self.getMazeDistance(nextAgentPosition, f) for f in currentFood])
+
+            features['minFoodDistance'] * 1.0 / (currentWalls.height + currentWalls.width)
+        if action == Directions.STOP:
+            features['stopPenalty'] = 1
+
+        capsules = self.getCapsules(gameState)
+        if nextAgentPosition in capsules:
+            features['capsule'] = 1
+
+        return features
+
+    def getWeights(self, gameState, action):
+        return {'enemyGhost': -20, 'enemyScaredGhost': 5, 'enemyScaryPacman': -10,
+                'enemyPacman': 5, 'foodNext': 5, 'minFoodDistance':-1, 'capsule': 10,
+                'stopPenalty': -100}
+
+    def chooseAction(self, gameState):
+        """
+        Picks among the actions with the highest Q(s,a).
+        """
+
+        actions = gameState.getLegalActions(self.index)
+        #
+        # # You can profile your evaluation time by uncommenting these lines
+        # # start = time.time()
+        values = [self.evaluate(gameState, a) for a in actions]
+        # # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
+        #
+        maxValue = max(values)
+        print maxValue
+        bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+        #
+        return random.choice(bestActions)
