@@ -243,8 +243,12 @@ class IntelligentAgent(CaptureAgent):
 
   def updateInferenceUI(self, gameState):
     dList = [util.Counter()] * (2 * len(self.getOpponents(gameState)))
-    for k in self.pfilters.keys():
-        dList[k] = self.pfilters[k].getBeliefDistribution()
+    import copy
+    pfilters = copy.deepcopy(self.pfilters)
+
+    for k in pfilters.keys():
+        beliefs = pfilters[k].getBeliefDistribution()
+        dList[k] = beliefs
 
     self.displayDistributionsOverPositions(dList)
 
@@ -499,7 +503,7 @@ class SmartOffenseAgentV3(IntelligentAgent):
         currentTeamPositions = [gameState.getAgentState(t).getPosition() \
                                 for t in self.getTeam(gameState)]
 
-        currentEnemyStates = [gameState.getAgentState(e) \
+        currentEnemyStates = [gameState.getAgentState(e)\
                                  for e in self.getOpponents(gameState)]
 
         enemyPacmenInRange = [e for e in currentEnemyStates \
@@ -531,7 +535,7 @@ class SmartOffenseAgentV3(IntelligentAgent):
                 else:
                     features['enemyPacman'] += 1
 
-        if not features['enemyGhost'] and not features['enemyScaryPacman']:
+        if (not features['enemyGhost']) and (not features['enemyScaryPacman']):
             if nextAgentPosition in currentFood:
                 features['foodNext'] = 1
 
@@ -545,6 +549,9 @@ class SmartOffenseAgentV3(IntelligentAgent):
                     min([self.getMazeDistance(nextAgentPosition, f) for f in currentFood])
 
             features['minFoodDistance'] * 1.0 / (currentWalls.height + currentWalls.width)
+        else:
+            features['degreeOfFreedom'] = len(self.getLegalTerritory(nextAgentPosition, currentWalls))
+
         if action == Directions.STOP:
             features['stopPenalty'] = 1
 
@@ -556,14 +563,13 @@ class SmartOffenseAgentV3(IntelligentAgent):
 
     def getWeights(self, gameState, action):
         return {'enemyGhost': -20, 'enemyScaredGhost': 5, 'enemyScaryPacman': -10,
-                'enemyPacman': 5, 'foodNext': 5, 'minFoodDistance':-1, 'capsule': 10,
-                'stopPenalty': -100}
+                'enemyPacman': 20, 'foodNext': 5, 'minFoodDistance':-1, 'capsule': 10,
+                'stopPenalty': -100, 'degreesOfFreedom': 10}
 
     def chooseAction(self, gameState):
         """
         Picks among the actions with the highest Q(s,a).
         """
-
         actions = gameState.getLegalActions(self.index)
         #
         # # You can profile your evaluation time by uncommenting these lines
@@ -572,7 +578,7 @@ class SmartOffenseAgentV3(IntelligentAgent):
         # # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
         #
         maxValue = max(values)
-        print maxValue
+
         bestActions = [a for a, v in zip(actions, values) if v == maxValue]
         #
         return random.choice(bestActions)
