@@ -234,9 +234,6 @@ class IntelligentAgent(CaptureAgent):
         self.pfilters[e] = inference.ExactInference(self.index, e, gameState.getInitialAgentPosition(e))
         self.pfilters[e].initialize(gsCopy)
 
-    import searchAgents
-    allFoodProblem = searchAgents.FoodSearchProblem(gameState, self.index)
-
     import __main__
     if '_display' in dir(__main__):
       self.display = __main__._display
@@ -449,18 +446,24 @@ class SmartOffenseAgentV2(IntelligentAgent):
         """
         Picks among the actions with the highest Q(s,a).
         """
+        import searchAgents, search
+        #allFoodProblem = searchAgents.FoodSearchProblem(gameState, self.index)
+        anyFood = searchAgents.AnyFoodSearchProblem(gameState, self.index)
+        searchActions = search.uniformCostSearch(anyFood)
+        print searchActions
+        return searchActions[0]
 
-        self.updateParticleFilters(gameState)
-        self.updateInferenceUI(gameState)
-
-        actions = gameState.getLegalActions(self.index)
-
-        # You can profile your evaluation time by uncommenting these lines
-        # start = time.time()
-        values = [self.evaluate(gameState, a) for a in actions]
-        # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
-
-        maxValue = max(values)
-        bestActions = [a for a, v in zip(actions, values) if v == maxValue]
-
-        return random.choice(bestActions)
+        # self.updateParticleFilters(gameState)
+        # self.updateInferenceUI(gameState)
+        #
+        # actions = gameState.getLegalActions(self.index)
+        #
+        # # You can profile your evaluation time by uncommenting these lines
+        # # start = time.time()
+        # values = [self.evaluate(gameState, a) for a in actions]
+        # # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
+        #
+        # maxValue = max(values)
+        # bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+        #
+        # return random.choice(bestActions)
