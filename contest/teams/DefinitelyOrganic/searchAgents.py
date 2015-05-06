@@ -144,7 +144,7 @@ class PositionSearchProblem(search.SearchProblem):
     Note: this search problem is fully specified; you should NOT change it.
     """
 
-    def __init__(self, gameState, agentIndex, food=None, costFn = lambda x: 1, goal=(1,1), start=None, warn=True, visualize=True):
+    def __init__(self, gameState, agentIndex, food=None, costFn = lambda x: 1, goal=(1,1), start=None, warn=True, visualize=False):
         """
         Stores the start and goal.
 

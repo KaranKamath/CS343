@@ -24,7 +24,7 @@ NUM_KEYBOARD_AGENTS = 0
 class DefinitelyOrganicAgents(AgentFactory):
   "Returns one keyboard agent and offensive reflex agents"
 
-  def __init__(self, isRed, first='offense', second='defense', rest='offense'):
+  def __init__(self, isRed, first='smartoffensev2', second='smartdefensev1', rest='smartoffensev2'):
     AgentFactory.__init__(self, isRed)
     self.agents = [first, second]
     self.rest = rest
@@ -49,12 +49,12 @@ class DefinitelyOrganicAgents(AgentFactory):
       return OffensiveReflexAgent(index)
     elif agentStr == 'defense':
       return DefensiveReflexAgent(index)
-    elif agentStr == 'smartoffense':
-      return SmartOffenseAgent(index)
     elif agentStr == 'smartoffensev2':
       return SmartOffenseAgentV2(index)
     elif agentStr == 'smartoffensev3':
       return SmartOffenseAgentV3(index)
+    elif agentStr == 'smartdefensev1':
+      return SmartDefenseAgentV1(index)
     else:
       raise Exception("No staff agent identified by " + agentStr)
 
@@ -216,6 +216,7 @@ class IntelligentAgent(CaptureAgent):
     between each pair of positions, so your agents can use:
     self.distancer.getDistance(p1, p2)
     """
+    self.nextFood = None
     self.red = gameState.isOnRedTeam(self.index)
     self.distancer = distanceCalculator.Distancer(gameState.data.layout)
 
@@ -499,6 +500,33 @@ class SmartOffenseAgentV2(IntelligentAgent):
         foodDivider = gridHeight / teamSize
         return [f for f in currentFood if f[1] / foodDivider == agentFoodIndex]
 
+    def isClosestToCapsule(self, gameState):
+        capsules = self.getCapsules(gameState)
+
+        if len(capsules) == 0:
+            return False
+
+        myPos = gameState.getAgentState(self.index).getPosition()
+        teamPos = [gameState.getAgentState(i).getPosition() for i in self.getTeam(gameState)]
+        teamPos.remove(myPos)
+
+        myMinToCap = min([self.getMazeDistance(myPos, cPos) for cPos in capsules])
+
+        for t in teamPos:
+            tMinToCap = min([self.getMazeDistance(myPos, cPos) for cPos in capsules])
+            if tMinToCap < myMinToCap:
+                return False
+
+        return True
+
+    def isTeamPacman(self, gameState):
+        team = self.getTeam(gameState)
+        team.remove(self.index)
+        for t in team:
+            if not gameState.getAgentState(t).isPacman:
+                return False
+        return True
+
     def getClosestFoodLocation(self, gameState):
         food = self.getAgentFood(gameState)
         currentFood = self.getFood(gameState).asList()
@@ -509,12 +537,13 @@ class SmartOffenseAgentV2(IntelligentAgent):
 
         foodDistances = agentFoodDistances
         if len(agentFoodDistances) == 0:
-            if len(capsuleDistances) > 0:
+            if len(capsuleDistances) > 0 and self.isClosestToCapsule(gameState) and \
+                    self.isTeamPacman(gameState):
                 foodDistances = capsuleDistances
             else:
                 foodDistances = teamFoodDistances
 
-        if min(teamFoodDistances, key=lambda x: x[1])[1] == 1:
+        if min(teamFoodDistances, key=lambda x: x[1])[1] == 1 or not self.isTeamPacman(gameState):
             return min(teamFoodDistances, key=lambda x: x[1])[0]
 
         return min(foodDistances, key=lambda x: x[1])[0]
@@ -540,21 +569,6 @@ class SmartOffenseAgentV2(IntelligentAgent):
             return random.choice(bestActions)
 
         return searchActions[0]
-
-        # self.updateParticleFilters(gameState)
-        # self.updateInferenceUI(gameState)
-        #
-        # actions = gameState.getLegalActions(self.index)
-        #
-        # # You can profile your evaluation time by uncommenting these lines
-        # # start = time.time()
-        # values = [self.evaluate(gameState, a) for a in actions]
-        # # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
-        #
-        # maxValue = max(values)
-        # bestActions = [a for a, v in zip(actions, values) if v == maxValue]
-        #
-        # return random.choice(bestActions)
 
 class SmartOffenseAgentV3(IntelligentAgent):
 
@@ -652,4 +666,192 @@ class SmartOffenseAgentV3(IntelligentAgent):
 
         bestActions = [a for a, v in zip(actions, values) if v == maxValue]
         #
+        return random.choice(bestActions)
+
+class SmartDefenseAgentV1(IntelligentAgent):
+    def getFeatures(self, gameState, action):
+
+        successor = self.getSuccessor(gameState, action)
+
+        features = util.Counter()
+        myState = successor.getAgentState(self.index)
+        myPos = myState.getPosition()
+
+        # Computes whether we're on defense (1) or offense (0)
+        features['onDefense'] = 1
+        if myState.isPacman: features['onDefense'] = 0
+
+        # Computes distance to invaders we can see
+        enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+        invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+
+        features['numInvaders'] = len(invaders)
+        if len(invaders) > 0:
+          dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
+          features['invaderDistance'] = min(dists)
+
+        if action == Directions.STOP: features['stop'] = 1
+        rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
+        if action == rev: features['reverse'] = 1
+
+        successorState = self.getSuccessor(gameState, action)
+        currentFood = self.getFood(gameState).asList()
+        currentWalls = gameState.getWalls()
+        currentAgentState = gameState.getAgentState(self.index)
+        currentAgentPosition = currentAgentState.getPosition()
+        nextAgentState = successorState.getAgentState(self.index)
+        nextAgentPosition = self.getNextPosition(currentAgentState.getPosition(), action)
+
+        isNextPacMan = nextAgentState.isPacman
+
+        currentTeamPositions = [gameState.getAgentState(t).getPosition() \
+                                for t in self.getTeam(gameState)]
+
+        currentEnemyStates = [gameState.getAgentState(e)\
+                                 for e in self.getOpponents(gameState)]
+
+        enemyPacmenInRange = [e for e in currentEnemyStates \
+                              if e.isPacman and e.getPosition() is not None]
+
+        enemyGhostsInRange = [e for e in currentEnemyStates \
+                              if not e.isPacman and e.getPosition() is not None]
+
+        gridHeight = currentWalls.height
+
+        teamSize = len(currentTeamPositions)
+
+        agentFoodIndex = ((gridHeight + self.index) / 2) % teamSize
+        foodDivider = gridHeight / teamSize
+
+        for e in enemyGhostsInRange:
+            enemyGhostTerritory = self.getLegalTerritory(e.getPosition(), currentWalls)
+            if nextAgentPosition in enemyGhostTerritory:
+                if e.scaredTimer:
+                    features['enemyScaredGhost'] += 1
+                else:
+                    features['enemyGhost'] += 1
+
+        for e in enemyPacmenInRange:
+            enemyPacmanTerritory = self.getLegalTerritory(e.getPosition(), currentWalls)
+            if nextAgentPosition in enemyPacmanTerritory:
+                if currentAgentState.scaredTimer:
+                    features['enemyScaryPacman'] += 1
+                else:
+                    features['enemyPacman'] += 1
+
+        if (not features['enemyGhost']) and (not features['enemyScaryPacman']):
+            if nextAgentPosition in currentFood:
+                features['foodNext'] = 1
+
+            agentFood = [f for f in currentFood if f[1] / foodDivider == agentFoodIndex]
+            foodTarget = None
+            if len(agentFood):
+                features['minFoodDistance'] = min(\
+                    [self.getMazeDistance(nextAgentPosition, x) for x in agentFood])
+            else:
+                features['minFoodDistance'] = min(\
+                    [self.getMazeDistance(nextAgentPosition, x) for x in currentFood])
+
+            features['minFoodDistance'] * 1.0 / (currentWalls.height + currentWalls.width)
+        else:
+            features['degreeOfFreedom'] = len(self.getLegalTerritory(nextAgentPosition, currentWalls))
+
+        if action == Directions.STOP:
+            features['stopPenalty'] = 1
+
+        capsules = self.getCapsules(gameState)
+        if nextAgentPosition in capsules:
+            features['capsule'] = 1
+
+        return features
+
+    def getWeights(self, gameState, action):
+        return {'enemyGhost': -20, 'enemyScaredGhost': 5, 'enemyScaryPacman': -10,
+                'enemyPacman': 20, 'stopPenalty': -100, 'degreesOfFreedom': 10, 'invaderDistance': -1}
+
+    def getAgentFood(self, gameState):
+        gridHeight = gameState.getWalls().height
+        teamSize = len(self.getTeam(gameState))
+        currentFood = self.getFood(gameState).asList()
+        agentFoodIndex = ((gridHeight + self.index) / 2) % teamSize
+        foodDivider = gridHeight / teamSize
+        return [f for f in currentFood if f[1] / foodDivider == agentFoodIndex]
+
+    def isClosestToCapsule(self, gameState):
+        capsules = self.getCapsules(gameState)
+
+        if len(capsules) == 0:
+            return False
+
+        myPos = gameState.getAgentState(self.index).getPosition()
+        teamPos = [gameState.getAgentState(i).getPosition() for i in self.getTeam(gameState)]
+        teamPos.remove(myPos)
+
+        myMinToCap = min([self.getMazeDistance(myPos, cPos) for cPos in capsules])
+
+        for t in teamPos:
+            tMinToCap = min([self.getMazeDistance(myPos, cPos) for cPos in capsules])
+            if tMinToCap < myMinToCap:
+                return False
+
+        return True
+
+    def isTeamPacman(self, gameState):
+        team = self.getTeam(gameState)
+        team.remove(self.index)
+        for t in team:
+            if not gameState.getAgentState(t).isPacman:
+                return False
+        return True
+
+    def getMissingFoodLocation(self, gameState, missingFood):
+        myPos = gameState.getAgentState(self.index).getPosition()
+        missingFoodDistances = [(f, self.getMazeDistance(myPos, f)) for f in missingFood]
+
+        return min(missingFoodDistances, key=lambda x: x[1])[0]
+
+    def getNextTargetFood(self, gameState, closestFood):
+        enemyFood = list(set(gameState.getBlueFood().asList()).union(set(gameState.getRedFood().asList())) \
+                         - set(self.getFood(gameState).asList()))
+        enemyPos = closestFood
+        enemyFoodDistances = [(f, self.getMazeDistance(enemyPos, f)) for f in enemyFood]
+
+        return min(enemyFoodDistances, key=lambda x: x[1])[0]
+
+    def chooseAction(self, gameState):
+        """
+        Picks among the actions with the highest Q(s,a).
+        """
+
+        prevGameState = self.getPreviousObservation()
+
+        if prevGameState is not None or self.nextFood is not None:
+            missingFood = list(set(self.getFood(prevGameState).asList()) - set(self.getFood(gameState).asList()))
+
+            if not len(missingFood) == 0:
+                closestFood = self.getMissingFoodLocation(gameState, missingFood)
+                nextFood = self.getNextTargetFood(gameState, closestFood)
+                self.nextFood = nextFood
+
+            if self.nextFood is not None:
+                positionSearchProblem = searchAgents.PositionSearchProblem(\
+                    gameState, self.index, goal=self.nextFood)
+                searchActions = search.uniformCostSearch(positionSearchProblem)
+                if len(searchActions) > 0:
+                    searchActionFeatures = self.getFeatures(gameState, searchActions[0])
+                    if not searchActionFeatures['enemyScaryPacman']:
+                        return searchActions[0]
+                    
+            actions = gameState.getLegalActions(self.index)
+            values = [self.evaluate(gameState, a) for a in actions]
+            maxValue = max(values)
+
+            bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+            return random.choice(bestActions)
+
+        actions = gameState.getLegalActions(self.index)
+        values = [self.evaluate(gameState, a) for a in actions]
+        maxValue = max(values)
+
+        bestActions = [a for a, v in zip(actions, values) if v == maxValue]
         return random.choice(bestActions)
