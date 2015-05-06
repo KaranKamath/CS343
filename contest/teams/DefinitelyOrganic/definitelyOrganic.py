@@ -499,16 +499,20 @@ class SmartOffenseAgentV2(IntelligentAgent):
         foodDivider = gridHeight / teamSize
         return [f for f in currentFood if f[1] / foodDivider == agentFoodIndex]
 
-
     def getClosestFoodLocation(self, gameState):
         food = self.getAgentFood(gameState)
         currentFood = self.getFood(gameState).asList()
         myPos = gameState.getAgentState(self.index).getPosition()
         agentFoodDistances = [(f, self.getMazeDistance(myPos, f)) for f in food]
         teamFoodDistances = [(f, self.getMazeDistance(myPos, f)) for f in currentFood]
+        capsuleDistances = [(c, self.getMazeDistance(myPos, c)) for c in self.getCapsules(gameState).asList()]
+
         foodDistances = agentFoodDistances
         if len(agentFoodDistances) == 0:
-            foodDistances = teamFoodDistances
+            if len(capsuleDistances) > 0:
+                foodDistances = capsuleDistances
+            else:
+                foodDistances = teamFoodDistances
 
         if min(teamFoodDistances, key=lambda x: x[1])[1] == 1:
             return min(teamFoodDistances, key=lambda x: x[1])[0]
