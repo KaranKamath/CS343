@@ -505,7 +505,7 @@ class SmartOffenseAgentV2(IntelligentAgent):
         myPos = gameState.getAgentState(self.index).getPosition()
         agentFoodDistances = [(f, self.getMazeDistance(myPos, f)) for f in food]
         teamFoodDistances = [(f, self.getMazeDistance(myPos, f)) for f in currentFood]
-        capsuleDistances = [(c, self.getMazeDistance(myPos, c)) for c in self.getCapsules(gameState).asList()]
+        capsuleDistances = [(c, self.getMazeDistance(myPos, c)) for c in self.getCapsules(gameState)]
 
         foodDistances = agentFoodDistances
         if len(agentFoodDistances) == 0:
