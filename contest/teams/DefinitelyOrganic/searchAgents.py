@@ -144,7 +144,7 @@ class PositionSearchProblem(search.SearchProblem):
     Note: this search problem is fully specified; you should NOT change it.
     """
 
-    def __init__(self, gameState, agentIndex, costFn = lambda x: 1, goal=(1,1), start=None, warn=True, visualize=True):
+    def __init__(self, gameState, agentIndex, food=None, costFn = lambda x: 1, goal=(1,1), start=None, warn=True, visualize=True):
         """
         Stores the start and goal.
 
@@ -153,11 +153,6 @@ class PositionSearchProblem(search.SearchProblem):
         goal: A position in the gameState
         """
         agentState = gameState.getAgentState(agentIndex)
-        food = None
-        if gameState.isOnRedTeam(agentIndex):
-            food = gameState.getBlueFood()
-        else:
-            food = gameState.getRedFood()
 
         self.walls = gameState.getWalls()
         self.startState = agentState.getPosition()

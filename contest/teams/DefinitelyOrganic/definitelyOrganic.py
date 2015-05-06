@@ -491,10 +491,28 @@ class SmartOffenseAgentV2(IntelligentAgent):
                 'enemyPacman': 20, 'foodNext': 5, 'minFoodDistance':-1, 'capsule': 10,
                 'stopPenalty': -100, 'degreesOfFreedom': 10}
 
+    def getAgentFood(self, gameState):
+        gridHeight = gameState.getWalls().height
+        teamSize = len(self.getTeam(gameState))
+        currentFood = self.getFood(gameState).asList()
+        agentFoodIndex = ((gridHeight + self.index) / 2) % teamSize
+        foodDivider = gridHeight / teamSize
+        return [f for f in currentFood if f[1] / foodDivider == agentFoodIndex]
+
+
     def getClosestFoodLocation(self, gameState):
-        food = self.getFood(gameState).asList()
+        food = self.getAgentFood(gameState)
+        currentFood = self.getFood(gameState).asList()
         myPos = gameState.getAgentState(self.index).getPosition()
-        foodDistances = [(f, self.getMazeDistance(myPos, f)) for f in food]
+        agentFoodDistances = [(f, self.getMazeDistance(myPos, f)) for f in food]
+        teamFoodDistances = [(f, self.getMazeDistance(myPos, f)) for f in currentFood]
+        foodDistances = agentFoodDistances
+        if len(agentFoodDistances) == 0:
+            foodDistances = teamFoodDistances
+
+        if min(teamFoodDistances, key=lambda x: x[1])[1] == 1:
+            return min(teamFoodDistances, key=lambda x: x[1])[0]
+
         return min(foodDistances, key=lambda x: x[1])[0]
 
     def chooseAction(self, gameState):
@@ -503,7 +521,8 @@ class SmartOffenseAgentV2(IntelligentAgent):
         """
 
         closestFood = self.getClosestFoodLocation(gameState)
-        positionSearchProblem = searchAgents.PositionSearchProblem(gameState, self.index, goal=closestFood)
+        positionSearchProblem = searchAgents.PositionSearchProblem(\
+            gameState, self.index, food=self.getAgentFood(gameState), goal=closestFood)
         searchActions = search.uniformCostSearch(positionSearchProblem)
 
         searchActionFeatures = self.getFeatures(gameState, searchActions[0])

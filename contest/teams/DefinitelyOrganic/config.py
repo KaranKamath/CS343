@@ -43,6 +43,6 @@ AgentFactory = 'definitelyOrganic.DefinitelyOrganicAgents'
 
 Partners = ['Karan Kamath']
 
-AgentArgs = {'first':'smartoffensev2', 'second':'smartoffensev3'}
+AgentArgs = {'first':'smartoffensev2', 'second':'smartoffensev2'}
 
 NotifyList = ['karankamath26@gmail.com']
