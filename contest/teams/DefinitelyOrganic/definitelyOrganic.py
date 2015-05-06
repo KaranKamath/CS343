@@ -540,13 +540,54 @@ class SmartOffenseAgentV3(IntelligentAgent):
                 features['foodNext'] = 1
 
             agentFood = [f for f in currentFood if f[1] / foodDivider == agentFoodIndex]
-
+            foodTarget = None
             if len(agentFood):
-                features['minFoodDistance'] = min(\
-                    [self.getMazeDistance(nextAgentPosition, f) for f in agentFood])
+                agentFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in agentFood]
+
+                priorityAllies = [i for i in self.getTeam(gameState) if i < self.index]
+
+                allyTargetFoodDistances = []
+
+                for ally in priorityAllies:
+                    allyLocation = gameState.getAgentState(ally).getPosition()
+                    allyFoodIndex = ((gridHeight + ally) / 2) % teamSize
+                    allyFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in agentFood]
+                    allyTargetFood = min(allyFoodDistances, \
+                                         key = lambda x: x[1])
+                    allyTargetFoodDistances.append(allyTargetFood)
+
+                for af in allyTargetFoodDistances:
+                    agentFoodDistances = filter(lambda x: not(x[0] == af[0] and x[1] > af[1]),\
+                                                              agentFoodDistances)
+                #null case
+                if len(agentFoodDistances) == 0:
+                    agentFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in agentFood]
+
+                features['minFoodDistance'] = min(agentFoodDistances, key=lambda x: x[1])[1]
             else:
-                features['minFoodDistance'] = \
-                    min([self.getMazeDistance(nextAgentPosition, f) for f in currentFood])
+                agentFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in currentFood]
+
+                priorityAllies = [i for i in self.getTeam(gameState) if i < self.index]
+
+                allyTargetFoodDistances = []
+
+                for ally in priorityAllies:
+                    allyLocation = gameState.getAgentState(ally).getPosition()
+                    allyFoodIndex = ((gridHeight + ally) / 2) % teamSize
+                    allyFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in agentFood]
+                    allyTargetFood = min(allyFoodDistances, \
+                                         key = lambda x: x[1])
+                    allyTargetFoodDistances.append(allyTargetFood)
+
+                for af in allyTargetFoodDistances:
+                    agentFoodDistances = filter(lambda x: not(x[0] == af[0] and x[1] > af[1]), \
+                                                agentFoodDistances)
+
+                #null case
+                if len(agentFoodDistances) == 0:
+                    agentFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in currentFood]
+
+                features['minFoodDistance'] = min(agentFoodDistances, key=lambda x: x[1])[1]
 
             features['minFoodDistance'] * 1.0 / (currentWalls.height + currentWalls.width)
         else:
