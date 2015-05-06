@@ -165,8 +165,8 @@ class PositionSearchProblem(search.SearchProblem):
         self.goal = goal
         self.costFn = costFn
         self.visualize = visualize
-        if warn and (gameState.getNumFood() != 1 or not gameState.hasFood(*goal)):
-            print 'Warning: this does not look like a regular search maze'
+        #if warn and (len(food.asList()) != 1 or not gameState.hasFood(*goal)):
+        #    print 'Warning: this does not look like a regular search maze'
 
         # For display purposes
         self._visited, self._visitedlist, self._expanded = {}, [], 0 # DO NOT CHANGE
@@ -433,7 +433,7 @@ class FoodSearchProblem:
 
     def isGoalState(self, state):
         print state[1].count()
-        return state[1].count() == 0
+        return state[1].count() < 3
 
     def getSuccessors(self, state):
         "Returns successor states, the actions they require, and a cost of 1."

@@ -409,65 +409,113 @@ class SmartOffenseAgent(IntelligentAgent):
 
         return random.choice(bestActions)
 
+import searchAgents, search
+
 class SmartOffenseAgentV2(IntelligentAgent):
     def getFeatures(self, gameState, action):
+
         features = util.Counter()
-        successor = self.getSuccessor(gameState, action)
-        features['successorScore'] = self.getScore(successor)
+        successorState = self.getSuccessor(gameState, action)
+        currentFood = self.getFood(gameState).asList()
+        currentWalls = gameState.getWalls()
+        currentAgentState = gameState.getAgentState(self.index)
+        currentAgentPosition = currentAgentState.getPosition()
+        nextAgentState = successorState.getAgentState(self.index)
+        nextAgentPosition = self.getNextPosition(currentAgentState.getPosition(), action)
 
-        # Compute distance to the nearest food
-        foodList = self.getFood(successor).asList()
-        if len(foodList) > 0: # This should always be True,  but better safe than sorry
-          myPos = successor.getAgentState(self.index).getPosition()
-          minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
-          bottomMostFood = min(foodList, key = lambda x: x[1])
-          features['distanceToFood'] = self.getMazeDistance(myPos, bottomMostFood)
+        isNextPacMan = nextAgentState.isPacman
 
-        teamIndices = self.getTeam(gameState)
-        teamIndices.remove(self.index)
-        minTeamDist = 0
+        currentTeamPositions = [gameState.getAgentState(t).getPosition() \
+                                for t in self.getTeam(gameState)]
 
-        if teamIndices is not None:
-            teamDistances = [self.getMazeDistance(myPos, gameState.getAgentState(p).getPosition()) \
-                               for p in teamIndices]
-            minTeamDist = min(teamDistances)
-            if minTeamDist <= 10 & gameState.getAgentState(self.index).isPacman:
-                features['minTeamDistance'] = minTeamDist
+        currentEnemyStates = [gameState.getAgentState(e)\
+                                 for e in self.getOpponents(gameState)]
 
-        enemyLocs = self.getEnemyLocationGuesses(gameState)
-        minEnemyDist = min([self.getMazeDistance(myPos, p) for p in enemyLocs.values()])
+        enemyPacmenInRange = [e for e in currentEnemyStates \
+                              if e.isPacman and e.getPosition() is not None]
 
-        myState = gameState.getAgentState(self.index)
-        #
-        # if myState.isPacman:
-        #     if minEnemyDist < 3:
-        #         features['ghostDistance'] = minEnemyDist
-        #         print "evader"
-        # else:
-        #     if myState.scaredTimer == 0 and minEnemyDist < 3:
-        #         features['ghostDistance'] = -minEnemyDist
-        #         print "Hunter"
+        enemyGhostsInRange = [e for e in currentEnemyStates \
+                              if not e.isPacman and e.getPosition() is not None]
+
+        gridHeight = currentWalls.height
+
+        teamSize = len(currentTeamPositions)
+
+        agentFoodIndex = ((gridHeight + self.index) / 2) % teamSize
+        foodDivider = gridHeight / teamSize
+
+        for e in enemyGhostsInRange:
+            enemyGhostTerritory = self.getLegalTerritory(e.getPosition(), currentWalls)
+            if nextAgentPosition in enemyGhostTerritory:
+                if e.scaredTimer:
+                    features['enemyScaredGhost'] += 1
+                else:
+                    features['enemyGhost'] += 1
+
+        for e in enemyPacmenInRange:
+            enemyPacmanTerritory = self.getLegalTerritory(e.getPosition(), currentWalls)
+            if nextAgentPosition in enemyPacmanTerritory:
+                if currentAgentState.scaredTimer:
+                    features['enemyScaryPacman'] += 1
+                else:
+                    features['enemyPacman'] += 1
+
+        if (not features['enemyGhost']) and (not features['enemyScaryPacman']):
+            if nextAgentPosition in currentFood:
+                features['foodNext'] = 1
+
+            agentFood = [f for f in currentFood if f[1] / foodDivider == agentFoodIndex]
+            foodTarget = None
+            if len(agentFood):
+                features['minFoodDistance'] = min(\
+                    [self.getMazeDistance(nextAgentPosition, x) for x in agentFood])
+            else:
+                features['minFoodDistance'] = min(\
+                    [self.getMazeDistance(nextAgentPosition, x) for x in currentFood])
+
+            features['minFoodDistance'] * 1.0 / (currentWalls.height + currentWalls.width)
+        else:
+            features['degreeOfFreedom'] = len(self.getLegalTerritory(nextAgentPosition, currentWalls))
+
+        if action == Directions.STOP:
+            features['stopPenalty'] = 1
 
         capsules = self.getCapsules(gameState)
-        if len(capsules):
-            features['minCapsuleDist'] = min([self.getMazeDistance(myPos, c)\
-                for c in capsules])
+        if nextAgentPosition in capsules:
+            features['capsule'] = 1
 
         return features
 
     def getWeights(self, gameState, action):
-        return {'successorScore': 100, 'distanceToFood': -1, 'ghostDistance': 10,
-                'minCapsuleDist': -1}
+        return {'enemyGhost': -20, 'enemyScaredGhost': 5, 'enemyScaryPacman': -10,
+                'enemyPacman': 20, 'foodNext': 5, 'minFoodDistance':-1, 'capsule': 10,
+                'stopPenalty': -100, 'degreesOfFreedom': 10}
+
+    def getClosestFoodLocation(self, gameState):
+        food = self.getFood(gameState).asList()
+        myPos = gameState.getAgentState(self.index).getPosition()
+        foodDistances = [(f, self.getMazeDistance(myPos, f)) for f in food]
+        return min(foodDistances, key=lambda x: x[1])[0]
 
     def chooseAction(self, gameState):
         """
         Picks among the actions with the highest Q(s,a).
         """
-        import searchAgents, search
-        #allFoodProblem = searchAgents.FoodSearchProblem(gameState, self.index)
-        anyFood = searchAgents.AnyFoodSearchProblem(gameState, self.index)
-        searchActions = search.uniformCostSearch(anyFood)
-        print searchActions
+
+        closestFood = self.getClosestFoodLocation(gameState)
+        positionSearchProblem = searchAgents.PositionSearchProblem(gameState, self.index, goal=closestFood)
+        searchActions = search.uniformCostSearch(positionSearchProblem)
+
+        searchActionFeatures = self.getFeatures(gameState, searchActions[0])
+        if searchActionFeatures['enemyGhost'] or searchActionFeatures['enemyScaryPacman']\
+                or searchActionFeatures['enemyScaredGhost'] or searchActionFeatures['enemyPacman']:
+            actions = gameState.getLegalActions(self.index)
+            values = [self.evaluate(gameState, a) for a in actions]
+            maxValue = max(values)
+
+            bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+            return random.choice(bestActions)
+
         return searchActions[0]
 
         # self.updateParticleFilters(gameState)
@@ -542,52 +590,11 @@ class SmartOffenseAgentV3(IntelligentAgent):
             agentFood = [f for f in currentFood if f[1] / foodDivider == agentFoodIndex]
             foodTarget = None
             if len(agentFood):
-                agentFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in agentFood]
-
-                priorityAllies = [i for i in self.getTeam(gameState) if i < self.index]
-
-                allyTargetFoodDistances = []
-
-                for ally in priorityAllies:
-                    allyLocation = gameState.getAgentState(ally).getPosition()
-                    allyFoodIndex = ((gridHeight + ally) / 2) % teamSize
-                    allyFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in agentFood]
-                    allyTargetFood = min(allyFoodDistances, \
-                                         key = lambda x: x[1])
-                    allyTargetFoodDistances.append(allyTargetFood)
-
-                for af in allyTargetFoodDistances:
-                    agentFoodDistances = filter(lambda x: not(x[0] == af[0] and x[1] > af[1]),\
-                                                              agentFoodDistances)
-                #null case
-                if len(agentFoodDistances) == 0:
-                    agentFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in agentFood]
-
-                features['minFoodDistance'] = min(agentFoodDistances, key=lambda x: x[1])[1]
+                features['minFoodDistance'] = min(\
+                    [self.getMazeDistance(nextAgentPosition, x) for x in agentFood])
             else:
-                agentFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in currentFood]
-
-                priorityAllies = [i for i in self.getTeam(gameState) if i < self.index]
-
-                allyTargetFoodDistances = []
-
-                for ally in priorityAllies:
-                    allyLocation = gameState.getAgentState(ally).getPosition()
-                    allyFoodIndex = ((gridHeight + ally) / 2) % teamSize
-                    allyFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in agentFood]
-                    allyTargetFood = min(allyFoodDistances, \
-                                         key = lambda x: x[1])
-                    allyTargetFoodDistances.append(allyTargetFood)
-
-                for af in allyTargetFoodDistances:
-                    agentFoodDistances = filter(lambda x: not(x[0] == af[0] and x[1] > af[1]), \
-                                                agentFoodDistances)
-
-                #null case
-                if len(agentFoodDistances) == 0:
-                    agentFoodDistances = [(f, self.getMazeDistance(nextAgentPosition, f)) for f in currentFood]
-
-                features['minFoodDistance'] = min(agentFoodDistances, key=lambda x: x[1])[1]
+                features['minFoodDistance'] = min(\
+                    [self.getMazeDistance(nextAgentPosition, x) for x in currentFood])
 
             features['minFoodDistance'] * 1.0 / (currentWalls.height + currentWalls.width)
         else:
